@@ -4,6 +4,6 @@ services:
     volumes:
       - ./:/app
     working_dir: /app
-    command: npm install && node stremio-addon.js
+    command: /bin/sh -c "npm install && node stremio-addon.js"
     ports:
       - 7000:7000
