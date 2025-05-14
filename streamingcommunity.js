@@ -3,17 +3,9 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const { getTMDbIdFromIMDb, getShowInfo } = require('./info');
 
-// Ensure SC_DOMAIN includes protocol
-let rawDomain = process.env.SC_DOMAIN || '';
-// Trim surrounding quotes
-rawDomain = rawDomain.replace(/^"|"$/g, '');
-let SC_DOMAIN = rawDomain;
+const SC_DOMAIN = process.env.SC_DOMAIN || 'https://streamingcommunity.ovh';
+const SC_FAST_SEARCH = process.env.SC_FAST_SEARCH || '0'; 
 
-if (!SC_DOMAIN.match(/^https?:\/\//)) {
-  SC_DOMAIN = 'https://' + SC_DOMAIN.replace(/\/+$/, '');
-}
-const SC_FAST_SEARCH = process.env.SC_FAST_SEARCH || '0';
-const MFP = process.env.MFP || '0';
 const USER_AGENT = process.env.USER_AGENT || "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:127.0) Gecko/20100101 Firefox/127.0";
 
 /**
@@ -56,7 +48,7 @@ async function search(queryUrl, date, isMovie, imdbId) {
     let version;
 
     if (SC_FAST_SEARCH === '0') {
-      const pageUrl = `${SC_DOMAIN}/titles/${tid}-${slug}`;
+      const pageUrl = `${SC_DOMAIN}/it/titles/${tid}-${slug}`;
       //console.log(pageUrl);
       const page = await axios.get(pageUrl, { headers });
       const $ = cheerio.load(page.data);
@@ -82,9 +74,11 @@ async function search(queryUrl, date, isMovie, imdbId) {
  * Get m3u8 link from VixCloud for movie
  */
 async function getFilm(tid, version) {
+  /*
   if (MFP === '1') {
     return { url: `${SC_DOMAIN}/iframe/${tid}`, quality: 'Unknown' };
   }
+    */
   const headers = {
     'User-Agent': USER_AGENT,
     'user-agent': USER_AGENT,
@@ -93,10 +87,11 @@ async function getFilm(tid, version) {
     'Referer': `${SC_DOMAIN}/`,
     'Origin': `${SC_DOMAIN}`
   };
-  const resp = await axios.get(`${SC_DOMAIN}/iframe/${tid}`, { headers });
+  const resp = await axios.get(`${SC_DOMAIN}/it/iframe/${tid}`, { headers });
   //console.log(resp.data);
   const $ = cheerio.load(resp.data);
   let iframeSrc = $('iframe').attr('src');
+  //console.log(iframeSrc);
   if (!iframeSrc.match(/^https?:\/\//)) iframeSrc = `${SC_DOMAIN}${iframeSrc}`;
   //console.log(iframeSrc);
   const embedResp = await axios.get(iframeSrc, { headers });
@@ -107,10 +102,10 @@ async function getFilm(tid, version) {
   const expires = /'expires':\s*'(\d+)'/.exec(script)[1];
   const quality = /"quality":(\d+)/.exec(script)[1];
   const id = iframeSrc.split('/embed/')[1].split('?')[0];
-  const m3u8 = `https://vixcloud.co/playlist/${id}.m3u8?token=${token}&expires=${expires}`;
+  const stream = `https://vixcloud.co/playlist/${id}.m3u8?token=${token}&expires=${expires}`;
   //console.log("M3U8", m3u8, quality);
-  console.log('✅ StreamingCommunity Stream URL:', m3u8, '📺 Quality:', quality);
-  return { url: m3u8, quality };
+  console.log('✅ StreamingCommunity Stream URL:', stream, '📺 Quality:', quality);
+  return { stream, quality };
 }
 
 /**
@@ -121,7 +116,7 @@ async function getSeasonEpisodeId(tid, slug, season, episode) {
     'User-Agent': USER_AGENT,
     'x-inertia': 'true'
   };
-  const resp = await axios.get(`${SC_DOMAIN}/titles/${tid}-${slug}/stagione-${season}`, { headers });
+  const resp = await axios.get(`${SC_DOMAIN}/titles/${tid}-${slug}/season-${season}`, { headers });
   const episodes = resp.data.props.loadedSeason.episodes || [];
   const found = episodes.find(e => e.number === episode);
   return found ? found.id : null;
@@ -131,15 +126,17 @@ async function getSeasonEpisodeId(tid, slug, season, episode) {
  * Get m3u8 link for a series episode
  */
 async function getEpisodeLink(episodeId, tid, version) {
+  /*
   if (MFP === '1') {
-    return { url: `${SC_DOMAIN}/iframe/${tid}?episode_id=${episodeId}&next_episode=1`, quality: 'Unknown' };
+    return { url: `${SC_DOMAIN}/it/iframe/${tid}?episode_id=${episodeId}&next_episode=1`, quality: 'Unknown' };
   }
+    */
   const headers = {
     'User-Agent': USER_AGENT,
     'x-inertia': 'true',
     'x-inertia-version': version
   };
-  let iframeUrl = `${SC_DOMAIN}/iframe/${tid}?episode_id=${episodeId}&next_episode=1`;
+  let iframeUrl = `${SC_DOMAIN}/it/iframe/${tid}?episode_id=${episodeId}&next_episode=1`;
   const resp = await axios.get(iframeUrl, { headers });
   const $ = cheerio.load(resp.data);
   let iframeSrc = $('iframe').attr('src');
@@ -165,21 +162,20 @@ async function streamingcommunity(imdbId) {
   const queryPath = `/api/search?q=${showName}`;
   const { tid, slug, version } = await search(queryPath, showInfo.year, isMovie, imdbId);
   if (isMovie) {
-    const { url, quality } = await getFilm(tid, version);
-    return [url, quality];
+    const { stream, quality } = await getFilm(tid, version);
+    return { stream, quality };
   } else {
     const episodeId = await getSeasonEpisodeId(tid, slug, showInfo.season, showInfo.episode);
-    const { url, quality } = await getEpisodeLink(episodeId, tid, version);
-    return [url, quality];
+    const { stream, quality } = await getEpisodeLink(episodeId, tid, version);
+    return { stream, quality };
   }
 }
 
 module.exports = { streamingcommunity };
 
-
-/* 
+/*
 // Example test:
 (async () => {
   await streamingcommunity('tt6857112');
 })(); 
- */
+*/

@@ -4,6 +4,7 @@ const { lordchannel } = require('./lordchannel');
 const { streamingcommunity } =  require('./streamingcommunity');
 const { streamingwatch } = require('./streamingwatch');
 const { cb01 } = require('./cb01');
+const { guardahd } = require('./guardahd');
 
 const builder = new addonBuilder({
   id: 'org.node.mammamia',
