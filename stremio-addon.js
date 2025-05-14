@@ -3,6 +3,7 @@ const { addonBuilder, serveHTTP } = require('stremio-addon-sdk');
 const { lordchannel } = require('./lordchannel');
 const { streamingcommunity } =  require('./streamingcommunity');
 const { streamingwatch } = require('./streamingwatch');
+const { cb01 } = require('./cb01');
 
 const builder = new addonBuilder({
   id: 'org.node.mammamia',
@@ -67,6 +68,21 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
       } catch (err) {
         console.error('StreamingWatch error:', err.message);
       }
+
+     // Try CB01
+     try {
+      const swUrl = await cb01(imdbId);
+      if (swUrl) {
+        streams.push({
+          title: `CB01: ${type} ${imdbId}`,
+          url: swUrl,
+          quality: 'Unknown',
+          isFree: true
+        });
+      }
+    } catch (err) {
+      console.error('CB01 error:', err.message);
+    }
   
     return { streams };
   });
