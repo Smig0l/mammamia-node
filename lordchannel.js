@@ -11,18 +11,18 @@ const LC_DOMAIN = process.env.LC_DOMAIN;
  */
 async function search(showName, year, season, episode, isMovie) {
   const headers = {
-    referer: `https://${LC_DOMAIN}/anime/anime-ita/`,
+    referer: `${LC_DOMAIN}/anime/anime-ita/`,
     'x-requested-with': 'XMLHttpRequest',
     'user-agent': 'Mozilla/5.0'
   };
-  const resp = await axios.get(`https://${LC_DOMAIN}/live_search/`, {
+  const resp = await axios.get(`${LC_DOMAIN}/live_search/`, {
     params: { media: showName, _: Date.now() },
     headers
   });
   //console.log(resp.data);
   for (const entry of resp.data.data || []) {
     if (!entry) continue;
-    const page = await axios.get(`https://${LC_DOMAIN}${entry.url}`, { headers });
+    const page = await axios.get(`${LC_DOMAIN}${entry.url}`, { headers });
     const $ = cheerio.load(page.data);
     const cardYear = $('ul.card__meta li:nth-of-type(2)').text().slice(-4);
     if (cardYear !== year) continue;
@@ -56,8 +56,7 @@ async function lordchannel(imdbId, season = null, episode = null) {
     const { showName, year } = await getShowInfo(tmdbId, isMovie);
     const { videoUrl, quality } = await search(showName, year, season, episode, isMovie);
     const stream = await getM3U8(videoUrl);
-    console.log('✅ Stream URL:', stream);
-    console.log('📺 Quality:', quality);
+    console.log('✅ LordChannel Stream URL:', stream, '📺 Quality:', quality);
     return { stream, quality };
   } catch (err) {
     console.error('❌ LordChannel Error:', err.message);

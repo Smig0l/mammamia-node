@@ -26,12 +26,12 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
   
     // Try LordChannel first
     try {
-      const lcResult = await lordchannel(imdbId, season, episode);
-      if (lcResult && lcResult.stream) {
+      const streamUrls = await lordchannel(imdbId, season, episode);
+      if (streamUrls && streamUrls.stream) {
         streams.push({
           title: `LordChannel: ${type} ${imdbId}`,
-          url: lcResult.stream,
-          quality: lcResult.quality || 'Unknown',
+          url: streamUrls.stream,
+          quality: streamUrls.quality || 'Unknown',
           isFree: true
         });
       }
@@ -41,12 +41,12 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
   
     // Try StreamingCommunity
     try {
-      const [scUrl, scQuality] = await streamingcommunity(imdbId);
-      if (scUrl) {
+      const streamUrls = await streamingcommunity(imdbId);
+      if (streamUrls && streamUrls.stream) {
         streams.push({
           title: `StreamingCommunity: ${type} ${imdbId}`,
-          url: scUrl,
-          quality: scQuality || 'Unknown',
+          url: streamUrls.stream,
+          quality: streamUrls.quality || 'Unknown',
           isFree: true
         });
       }
@@ -56,11 +56,11 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
 
     // Try StreamingWatch
     try {
-        const swUrl = await streamingwatch(imdbId);
-        if (swUrl) {
+        const streamUrls = await streamingwatch(imdbId);
+        if (streamUrls && streamUrls.stream) {
           streams.push({
             title: `StreamingWatch: ${type} ${imdbId}`,
-            url: swUrl,
+            url: streamUrls.stream,
             quality: 'Unknown',
             isFree: true
           });
@@ -71,11 +71,11 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
 
      // Try CB01
      try {
-      const swUrl = await cb01(imdbId);
-      if (swUrl) {
+      const streamUrls = await cb01(imdbId);
+      if (streamUrls && streamUrls.stream) {
         streams.push({
           title: `CB01: ${type} ${imdbId}`,
-          url: swUrl,
+          url: streamUrls.stream,
           quality: 'Unknown',
           isFree: true
         });
