@@ -66,9 +66,8 @@ async function search(cleanId) {
     const headers = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
     };
-    console.log(cleanId);
 
-    const response = await axios.get(`${GHD_DOMAIN}/set-movie-a/${cleanId}`, {
+    const response = await axios.get(`${GHD_DOMAIN}/movie/${cleanId}`, {
       headers,
       maxRedirects: 10,
       timeout: 30000,
@@ -101,15 +100,16 @@ async function guardahd(id) {
       return null;
     }
 
-    const superVideoLink = await search(tmdbId);
+    const superVideoLink = await search(id);
     if (!superVideoLink) {
       return null;
     }
 
-    const finalUrl = await getSuperVideoLink(superVideoLink);
-    return finalUrl;
+    const stream = await getSuperVideoLink(superVideoLink);
+    console.log('✅ GuardaHD Stream URL:', stream);
+    return { stream };
   } catch (error) {
-    console.error('MammaMia: GuardaHD Failed', error.message);
+    console.error('❌ GuardaHD Error:', err.message);
     return null;
   }
 }

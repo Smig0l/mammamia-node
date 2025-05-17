@@ -5,6 +5,9 @@ const { streamingcommunity } =  require('./streamingcommunity');
 const { streamingwatch } = require('./streamingwatch');
 const { cb01 } = require('./cb01');
 const { guardahd } = require('./guardahd');
+const { filmpertutti } = require('./filmpertutti');
+const { tantifilm } = require('./tantifilm');
+
 
 const builder = new addonBuilder({
   id: 'org.node.mammamia',
@@ -84,6 +87,20 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
     } catch (err) {
       console.error('CB01 error:', err.message);
     }
+    // Try GuardaHD 
+    try {
+      const streamUrls = await guardahd(imdbId);
+      if (streamUrls && streamUrls.stream) {
+        streams.push({
+          title: `GuardaHD: ${type} ${imdbId}`,
+          url: streamUrls.stream,
+          quality: 'Unknown',
+          isFree: true
+        });
+      }
+    } catch (err) {
+      console.error('GuardaHD error:', err.message);
+    } 
   
     return { streams };
   });
