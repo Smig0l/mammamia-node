@@ -60,21 +60,21 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
 
     // Try StreamingWatch
     try {
-        const streamUrls = await streamingwatch(imdbId);
-        if (streamUrls && streamUrls.stream) {
-          streams.push({
-            title: `StreamingWatch: ${type} ${imdbId}`,
-            url: streamUrls.stream,
-            quality: 'Unknown',
-            isFree: true
-          });
-        }
-      } catch (err) {
-        console.error('StreamingWatch error:', err.message);
+      const streamUrls = await streamingwatch(imdbId);
+      if (streamUrls && streamUrls.stream) {
+        streams.push({
+          title: `StreamingWatch: ${type} [unknownprovider]`,
+          url: streamUrls.stream,
+          quality: 'Unknown',
+          isFree: true
+        });
       }
+    } catch (err) {
+      console.error('StreamingWatch error:', err.message);
+    }
 
-     // Try CB01
-     try {
+    // Try CB01
+    try {
       const streamUrls = await cb01(imdbId);
        if (streamUrls && Array.isArray(streamUrls.streams)) {
         streamUrls.streams.forEach(({ url, provider }) => {

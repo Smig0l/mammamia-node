@@ -3,7 +3,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const { getTMDbIdFromIMDb, getShowInfo } = require('./info');
 
-const SW_DOMAIN = process.env.SW_DOMAIN
+const SW_DOMAIN = process.env.SW_DOMAIN || "https://www.streamingwatch.org"
 
 // Helper: fetch wponce token
 async function wponceGet() {
@@ -36,7 +36,7 @@ async function search(showname, season, episode, date, isMovie) {
         'x-requested-with': 'XMLHttpRequest',
       };
   
-      const res = await axios.post(`${SW_DOMAIN}/wp-admin/admin-ajax.php`, formData, { headers });
+    const res = await axios.post(`${SW_DOMAIN}/wp-admin/admin-ajax.php`, formData, { headers });
     //console.log(res.data);
     const $ = cheerio.load(res.data);
     const allDates = $('#search-cat-year').map((_, el) => $(el).text().trim()).get();
@@ -49,7 +49,7 @@ async function search(showname, season, episode, date, isMovie) {
         return src;
       }
     }
-  } else {
+  } else { //TODO:
     // For series
     const catRes = await axios.get(`${SW_DOMAIN}/wp-json/wp/v2/categories?search=${showname}&_fields=id`);
     const categoryId = catRes.data[0]?.id;
@@ -112,9 +112,9 @@ async function streamingwatch(imdb) {
 
 module.exports = { streamingwatch };
 
-/* 
+/*
 // Example test:
 (async () => {
   await streamingwatch('tt27911000');
 })();  
-  */
+*/
