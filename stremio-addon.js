@@ -90,17 +90,19 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
     // Try GuardaHD 
     try {
       const streamUrls = await guardahd(imdbId);
-      if (streamUrls && streamUrls.stream) {
-        streams.push({
-          title: `GuardaHD: ${type} ${imdbId}`,
-          url: streamUrls.stream,
-          quality: 'Unknown',
-          isFree: true
+      if (streamUrls && Array.isArray(streamUrls.streams)) {
+        streamUrls.streams.forEach(({ url, provider }) => {
+          streams.push({
+            title: `GuardaHD: ${type} [${provider}]`,
+            url,
+            quality: 'Unknown',
+            isFree: true
+          });
         });
       }
     } catch (err) {
       console.error('GuardaHD error:', err.message);
-    } 
+    }
   
     return { streams };
   });
