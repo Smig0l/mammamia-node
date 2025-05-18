@@ -12,25 +12,38 @@ async function movieRedirectUrl(link) {
     try {
         const response = await axios.get(link, { headers: { Referer: `${CB_DOMAIN}/` } });
         const $ = cheerio.load(response.data);
+        //console.log(response.data);
 
-        // Extract the redirect URL from the iframe
-        let redirectUrl = $('#iframen2').data('src') || $('#iframen1').data('src');
-        //console.log(redirectUrl);
+        const playerLinks = [];
+        $('#iframen1, #iframen2').each((i, el) => {
+          const link = $(el).data('src');
+          if (link && link.trim() !== '') {
+            playerLinks.push(link.startsWith('//') ? 'https:' + link : link);
+          }
+        });
 
-        // Handle "stayonline" links
-        if (redirectUrl && redirectUrl.includes('stayonline')) {
-        redirectUrl = await getStayOnlineUrl(redirectUrl);
-            if (redirectUrl && redirectUrl.includes('mixdrop')) {
-                redirectUrl = await getTrueLinkMixdrop(redirectUrl);
+        let streams = [];
+        let provider = "";
+        for (const link of playerLinks) {
+          provider = "mixdrop";
+          if (link.includes("stayonline")) {
+            let redirectUrl = await getStayOnlineUrl(link);
+            if (redirectUrl && redirectUrl.includes(provider)) {
+              let stream = await getTrueLinkMixdrop(redirectUrl);
+              if (stream) {
+                streams.push({ url: stream, provider });
+              }
             }
+            continue;
+          }
+          provider = "maxstream";
+          if (link.includes("uprot")) {
+            //TODO: protected by captcha
+            continue;
+          }
         }
 
-        // Handle "maxstream" links
-        if (redirectUrl && redirectUrl.includes('maxstream')) {
-        redirectUrl = await getMaxStreamUrl(redirectUrl);
-        }
-
-        return redirectUrl;
+      return streams.length > 0 ? streams : null;
     } catch (error) {
         console.error('Error in movieRedirectUrl:', error.message);
     }
@@ -188,16 +201,16 @@ async function cb01(id) {
 
     if (isMovie) {
       const movieLink = await searchMovie(showName, year);
-      stream = await movieRedirectUrl(movieLink);
-    } else {
+      streams = await movieRedirectUrl(movieLink);
+    } else { //FIXME:
       const season = '01'; // Replace with actual season
       const episode = '01'; // Replace with actual episode
       const seriesLink = await searchSeries(showName, year);
-      stream = await seriesRedirectUrl(seriesLink, season, episode);
+      streams = await seriesRedirectUrl(seriesLink, season, episode);
     }
 
-    console.log('✅ CB0l Stream URL:', stream);
-    return { stream };
+    console.log('✅ CB0l Stream URLs:', streams);
+    return { streams };
   } catch (error) {
     console.error('❌ CB0l Error:', err.message);
     return null;
@@ -206,7 +219,7 @@ async function cb01(id) {
 
 module.exports = { cb01 };
 
-/* 
+/*
 (async () => {
     console.log("TESTING: ", `${CB_DOMAIN}`)
     const result = await cb01('tt18412256');

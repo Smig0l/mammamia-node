@@ -76,12 +76,14 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
      // Try CB01
      try {
       const streamUrls = await cb01(imdbId);
-      if (streamUrls && streamUrls.stream) {
-        streams.push({
-          title: `CB01: ${type} ${imdbId}`,
-          url: streamUrls.stream,
-          quality: 'Unknown',
-          isFree: true
+       if (streamUrls && Array.isArray(streamUrls.streams)) {
+        streamUrls.streams.forEach(({ url, provider }) => {
+          streams.push({
+            title: `CB01: ${type} [${provider}]`,
+            url,
+            quality: 'Unknown',
+            isFree: true
+          });
         });
       }
     } catch (err) {

@@ -175,12 +175,11 @@ async function search(cleanId) {
         playerLinks.push(link.startsWith('//') ? 'https:' + link : link);
       }
     });
-
     //console.log('GuardaHD player links:', playerLinks);
     let streams = [];
-
+    let provider = "";
     for (const link of playerLinks) {
-      let provider = "supervideo";
+      provider = "supervideo";
       if (link.includes(provider)) {
         let stream = await getSuperVideoLink(link);
         if (stream) {
