@@ -237,9 +237,10 @@ async function animeunity(id) {
 
 module.exports = { animeunity };
 
-
+/*
 (async () => {
     //const results = await animeunity("tt9335498:1:1");
     const results = await animeunity("tt11032374");
     console.log(results);
 })();
+*/
