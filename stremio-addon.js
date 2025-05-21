@@ -5,8 +5,10 @@ const { streamingcommunity } =  require('./streamingcommunity');
 const { streamingwatch } = require('./streamingwatch');
 const { cb01 } = require('./cb01');
 const { guardahd } = require('./guardahd');
-const { filmpertutti } = require('./filmpertutti');
-const { tantifilm } = require('./tantifilm');
+const { filmpertutti } = require('./filmpertutti'); //TODO:
+const { tantifilm } = require('./tantifilm'); //TODO:
+const { animeworld } = require('./animeworld'); //TODO:
+const { animeunity } = require('./animeunity');
 
 
 const builder = new addonBuilder({
@@ -27,8 +29,8 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
     const streams = [];
   
     const imdbId = id;
-  
-    // Try LordChannel first
+    /*
+    // Try LordChannel
     try {
       const streamUrls = await lordchannel(imdbId, season, episode);
       if (streamUrls && streamUrls.stream) {
@@ -42,7 +44,7 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
     } catch (err) {
       console.error('LordChannel error:', err.message);
     }
-  
+    */
     // Try StreamingCommunity
     try {
       const streamUrls = await streamingcommunity(imdbId);
@@ -104,6 +106,22 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
       }
     } catch (err) {
       console.error('GuardaHD error:', err.message);
+    }
+    // Try AnimeUnity
+    try {
+      const streamUrls = await animeunity(imdbId);
+      if (streamUrls && Array.isArray(streamUrls.streams)) {
+        streamUrls.streams.forEach(({ url, provider, dub }) => {
+          streams.push({
+            title: `AnimeUnity: ${type} - ${dub} [${provider}]`,
+            url,
+            quality: 'Unknown',
+            isFree: true
+          });
+        });
+      }
+    } catch (err) {
+      console.error('AnimeUnity error:', err.message);
     }
   
     return { streams };
