@@ -1,11 +1,10 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { getTMDbIdFromIMDb, getShowInfo } = require('./info.js');
 require('dotenv').config();
 
 const AU_DOMAIN = process.env.AU_DOMAIN || 'https://www.animeunity.so';
 
-async function search(showName, isMovie) {
+async function search(showName) {
     // Step 1: Get CSRF token and session cookie
     const mainPage = await axios.get(AU_DOMAIN, {
         headers: {
@@ -43,7 +42,20 @@ async function extractStreamUrl(animePageUrl, sessionCookie) {
     const $ = cheerio.load(response.data);
     //console.log(response.data);
     const iframeSrc = $('video-player').attr('embed_url');
-    return iframeSrc;
+    //console.log('Extracted iframe source:', iframeSrc);
+    // extract m3u8 playlist from embed url
+    const embedResp = await axios.get(iframeSrc, { headers });
+    const script = cheerio.load(embedResp.data)('body script').text();
+    /* FIXME: m3u8 gives 403 error
+    const token = /'token':\s*'([\w-]+)'/.exec(script)[1];
+    const expires = /'expires':\s*'(\d+)'/.exec(script)[1];
+    const quality = /"quality":(\d+)/.exec(script)[1];
+    const id = iframeSrc.split('/embed/')[1].split('?')[0];
+    return m3u8 = `https://vixcloud.co/playlist/${id}.m3u8?token=${token}&expires=${expires}`;
+    */
+    const mp4Match = /window\.downloadUrl\s*=\s*'([^']+)'/.exec(script);
+    const mp4 = mp4Match ? mp4Match[1] : null;
+    return mp4;
 }
 
 async function getAniListInfo(anilistId) {
@@ -85,7 +97,7 @@ async function getAniListInfo(anilistId) {
     });
     const media = response.data.data.Media;
     // You can log media here for debugging
-    console.log(media);
+    //console.log(media);
     return {
         id: media.id,
         title: media.title.english || media.title.romaji || media.title.native,
@@ -139,11 +151,8 @@ function collectSeasons(mainInfo) {
     });
 }
 
-async function animeunity(id) {
+async function animeunity(kitsuId, showName, type, season, episode) {
     try {
-        const [imdbId, season, episode] = id.split(':');
-        const { isMovie, tmdbId } = await getTMDbIdFromIMDb(imdbId);
-        const { showName, year: tmdbYear } = await getShowInfo(tmdbId, isMovie);
 
         // Get session cookie for subsequent requests
         const mainPage = await axios.get(AU_DOMAIN, {
@@ -152,14 +161,14 @@ async function animeunity(id) {
         const cookies = mainPage.headers['set-cookie'] || [];
         const sessionCookie = cookies.map(c => c.split(';')[0]).join('; ');
 
-        const searchResult = await search(showName, isMovie);
+        const searchResult = await search(showName);
 
         if (!searchResult || !Array.isArray(searchResult.records)) {
             return null;
         }
 
         let filteredRecords = [];
-        if (!isMovie && season) {
+        if (type != "movie" && season) {
             // Find the AniList ID for the requested TMDb season
             let wantedAniListId = null;
             for (const record of searchResult.records) {
@@ -183,7 +192,7 @@ async function animeunity(id) {
         }
 
         // Fallback: match by seasonYear
-        if (!filteredRecords.length && !isMovie && season) {
+        if (!filteredRecords.length && season) {
             for (const record of searchResult.records) {
                 if (!record.anilist_id) continue;
                 try {
@@ -239,8 +248,8 @@ module.exports = { animeunity };
 
 /*
 (async () => {
-    //const results = await animeunity("tt9335498:1:1");
-    const results = await animeunity("tt11032374");
+    //const results = await animeunity("tt9335498:1:1"); 
+    //const results = await animeunity("tt11032374", "Demon Slayer: Kimetsu no Yaiba - The Movie: Mugen Train", "movie", null, null);
     console.log(results);
 })();
 */

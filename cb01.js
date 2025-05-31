@@ -1,228 +1,126 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { getTMDbIdFromIMDb, getShowInfo } = require('./info');
 require('dotenv').config();
+const { extractDirectLink, bypassProtectedLink } = require('./utils/streamproviders');
 
-const CB_DOMAIN = process.env.CB_DOMAIN || 'https://cb01net.icu';
+const STREAM_SITE = process.env.CB_DOMAIN || 'https://cb01net.download' || 'https://cb01.uno';
 
 /**
  * Extract the real movie URL from CB01.
  */
-async function movieRedirectUrl(link) {
+async function parsePlayerPage(link, type, season, episode) {
     try {
-        const response = await axios.get(link, { headers: { Referer: `${CB_DOMAIN}/` } });
+
+      const playerLinks = [];
+
+      if (type === 'movie'){
+        const response = await axios.get(link, { headers: { Referer: `${STREAM_SITE}/` } });
         const $ = cheerio.load(response.data);
         //console.log(response.data);
 
-        const playerLinks = [];
         $('#iframen1, #iframen2').each((i, el) => {
           const link = $(el).data('src');
           if (link && link.trim() !== '') {
             playerLinks.push(link.startsWith('//') ? 'https:' + link : link);
           }
         });
-
-        let streams = [];
-        let provider = "";
-        for (const link of playerLinks) {
-          provider = "mixdrop";
-          if (link.includes("stayonline")) {
-            let redirectUrl = await getStayOnlineUrl(link);
-            if (redirectUrl && redirectUrl.includes(provider)) {
-              let stream = await getTrueLinkMixdrop(redirectUrl);
-              if (stream) {
-                streams.push({ url: stream, provider });
-              }
-            }
-            continue;
+      } else { // For series, we need to handle the season and episode links
+        
+        // Find the season div (case insensitive search for STAGIONE/Stagione)
+        const seasonDiv = $(`.sp-wrap`).filter((_, el) => {
+          return $(el).text().match(new RegExp(`STAGION[IE]\\s*${season}\\s*-?\\s*ITA`, 'i'));
+        });
+        
+        // Look for episode link (format: 1×01, 2×02, etc)
+        const episodePattern = `${season}×${episode.toString().padStart(2, '0')}`;
+        
+        // Find all links that contain our episode pattern
+        seasonDiv.find('a').each((_, element) => {
+          const $parent = $(element).parent('p');
+          if ($parent.text().includes(episodePattern)) {
+            //const provider = $(element).text().toLowerCase();
+            const link = $(element).attr('href');
+            playerLinks.push({link});
           }
-          provider = "maxstream";
-          if (link.includes("uprot")) {
-            //TODO: protected by captcha
-            continue;
-          }
-        }
+        });
 
-      return streams.length > 0 ? streams : null;
+      }
+      //console.log('CB01 Player Links:', playerLinks);
+      return playerLinks.length > 0 ? playerLinks : null;
+
     } catch (error) {
-        console.error('Error in movieRedirectUrl:', error.message);
+        console.error('Error in parsePlayerPage:', error.message);
     }
     return null;
 }
 
 /**
- * Extract the real URL from StayOnline links.
+ * Generic search function for both movies and series
  */
-async function getStayOnlineUrl(link) {
-    try {
-        const headers = {
-            'origin': 'https://stayonline.pro',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 OPR/111.0.0.0',
-            'x-requested-with': 'XMLHttpRequest',
-        };
-        const response = await axios.post('https://stayonline.pro/ajax/linkEmbedView.php', {
-        id: link.split('/').slice(-2, -1)[0],
-        ref: ''
-        }, { headers: headers });
+async function search(showName, type = 'movie') {
+  try {
+    const searchPath = type === 'series' ? '/serietv/' : '/';
+    const query = `${STREAM_SITE}${searchPath}?s=${encodeURIComponent(showName)}`;
+    const response = await axios.get(query, { 
+      headers: { 
+        Referer: `${STREAM_SITE}${searchPath}` 
+      } 
+    });
 
-        return response.data.data.value;
-    } catch (error) {
-        console.error('Error in getStayOnlineUrl:', error.message);
-    }
+    const $ = cheerio.load(response.data);
+    const firstResult = $('.card-content').first();
+    const link = firstResult.find('h3.card-title a').attr('href');
+    const title = firstResult.find('h3.card-title a').text().trim();
+    
+    return link || null;
+  } catch (error) {
+    console.error(`❌ Search error (${type}):`, error.message);
     return null;
+  }
 }
 
 /**
- * Extract the real URL from Mixdrop links.
+ * Main CB01 scraper function with unified search
  */
-async function getTrueLinkMixdrop(realLink) {
-    try {
-
-        if (realLink.includes('club')) {
-            realLink = realLink.replace('club', 'my').split('/2')[0];
-        }        
-  
-      const headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-      };
-  
-      const response = await axios.get(realLink, { headers, maxRedirects: 10, timeout: 30000 });
-      const regex = /\}\('(.+)',.+,'(.+)'\.split/;
-      const match = regex.exec(response.data);
-  
-      if (!match) {
-        throw new Error('Failed to extract Mixdrop schema and terms.');
-      }
-  
-      const [_, schemaRaw, termsRaw] = match;
-      const schema = schemaRaw.split(';')[2].slice(5, -1);
-      const terms = termsRaw.split('|');
-      const charset = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-      const mapping = {};
-  
-      for (let i = 0; i < terms.length; i++) {
-        mapping[charset[i]] = terms[i] || charset[i];
-      }
-  
-      let finalUrl = 'https:';
-      for (const char of schema) {
-        finalUrl += mapping[char] || char;
-      }
-  
-      //console.log(finalUrl);
-      return finalUrl;
-    } catch (error) {
-      console.error('Error in getTrueLinkMixdrop:', error.message);
+async function scrapeCb01(imdbId, showName, type, season = null, episode = null) {
+  try {
+    // Use unified search function
+    const results = await search(showName, type);
+    if (!results) {
+      console.error(`❌ CB01: No ${type} found for "${showName}"`); //FIXME: some showName may not be found because of language differences
       return null;
     }
-}
 
-/**
- * Extract the real URL from MaxStream links.
- */
-async function getMaxStreamUrl(link) {
-    try {
-        const response = await axios.get(link, { headers: { Referer: `${CB_DOMAIN}/` } });
-        const $ = cheerio.load(response.data);
+    let streams;
 
-        const maxStreamUrl = $('a').attr('href');
-        return maxStreamUrl;
-    } catch (error) {
-        console.error('Error in getMaxStreamUrl:', error.message);
-    }
-    return null;
-}
+    playerLinks = await parsePlayerPage(results, type, season, episode);
 
-/**
- * Search for a movie on CB01.
- */
-async function searchMovie(showName, year) {
-  try {
-    const query = `${CB_DOMAIN}/?s=${encodeURIComponent(showName)}`;
-    const response = await axios.get(query, { headers: { Referer: `${CB_DOMAIN}/` } });
-    const $ = cheerio.load(response.data);
-    const cards = $('.card-content');
-
-    for (const card of cards) {
-      const link = $(card).find('h3.card-title a').attr('href');
-      const dateText = link.split('/').slice(-2, -1)[0];
-      if (dateText.includes(year)) return link;
-    }
-  } catch (error) {
-    console.error('Error in searchMovie:', error.message);
-  }
-  return null;
-}
-
-/**
- * Search for a series on CB01.
- */
-async function searchSeries(showName, year) {
-  try {
-    const query = `${CB_DOMAIN}/serietv/?s=${encodeURIComponent(showName)}`;
-    const response = await axios.get(query, { headers: { Referer: `${CB_DOMAIN}/serietv/` } });
-    const $ = cheerio.load(response.data);
-    const cards = $('.card-content');
-
-    for (const card of cards) {
-      const link = $(card).find('h3.card-title a').attr('href');
-      const dateText = $(card).find('span[style*="color"]').text();
-      if (dateText.includes(year)) return link;
-    }
-  } catch (error) {
-    console.error('Error in searchSeries:', error.message);
-  }
-  return null;
-}
-
-/**
- * Extract the final series URL.
- */
-async function seriesRedirectUrl(link, season, episode) {
-  try {
-    const response = await axios.get(link);
-    const $ = cheerio.load(response.data);
-    const seasonDiv = $(`.sp-head:contains('STAGIONE ${season}')`).next('.sp-body');
-    const episodeLink = seasonDiv.find(`a:contains('${episode}')`).attr('href');
-    return episodeLink;
-  } catch (error) {
-    console.error('Error in seriesRedirectUrl:', error.message);
-  }
-  return null;
-}
-
-/**
- * Main CB01 scraper function.
- */
-async function cb01(id) {
-  try {
-    const { isMovie, tmdbId } = await getTMDbIdFromIMDb(id);
-    const { showName, year } = await getShowInfo(tmdbId, isMovie);
-
-    if (isMovie) {
-      const movieLink = await searchMovie(showName, year);
-      streams = await movieRedirectUrl(movieLink);
-    } else { //FIXME:
-      const season = '01'; // Replace with actual season
-      const episode = '01'; // Replace with actual episode
-      const seriesLink = await searchSeries(showName, year);
-      streams = await seriesRedirectUrl(seriesLink, season, episode);
+    if (!playerLinks?.length) {
+      console.error('❌ CB01: No links found in player page');
+      return null;
     }
 
-    console.log('✅ CB0l Stream URLs:', streams);
+    protectedstreamlinks = await bypassProtectedLink(playerLinks); //FIXME: foreach?
+
+    streams = await extractDirectLink(protectedstreamlinks); //FIXME: foreach?
+
+    console.log('✅ CB01 Stream URLs:', streams);
     return { streams };
+
   } catch (error) {
-    console.error('❌ CB0l Error:', err.message);
+    console.error('❌ CB01 Error:', error.message);
     return null;
   }
 }
 
-module.exports = { cb01 };
+module.exports = { scrapeCb01 };
 
 /*
+// Test the refactored code
 (async () => {
-    console.log("TESTING: ", `${CB_DOMAIN}`)
-    const result = await cb01('tt18412256');
-    console.log("RESULT: ", result);
-  })();
+  console.log("TESTING: ", STREAM_SITE);
+  // Uncomment to test:
+  const movie = await scrapeCb01('tt28309594', 'Nonnas', 'movie');
+  const series = await scrapeCb01('tt3581920', 'The Last of Us', 'series', 2, 1);
+})();
 */

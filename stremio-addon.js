@@ -1,10 +1,13 @@
 require('dotenv').config();
+const axios = require('axios');
 const { addonBuilder, serveHTTP } = require('stremio-addon-sdk');
-const { lordchannel } = require('./lordchannel');
+const { getShowNameFromCinemeta, getShowNameFromKitsu } = require('./utils/mediainfo');
+
+const { lordchannel } = require('./lordchannel'); //FIXME:
 const { streamingcommunity } =  require('./streamingcommunity');
 const { streamingwatch } = require('./streamingwatch');
-const { cb01 } = require('./cb01');
-const { guardahd } = require('./guardahd');
+const { scrapeCb01 } = require('./cb01');
+const { scrapeGuardaHD } = require('./guardahd');
 const { filmpertutti } = require('./filmpertutti'); //TODO:
 const { tantifilm } = require('./tantifilm'); //TODO:
 const { animeworld } = require('./animeworld'); //TODO:
@@ -14,25 +17,46 @@ const { animeunity } = require('./animeunity');
 const builder = new addonBuilder({
   id: 'org.node.mammamia',
   version: '1.0.0',
-  name: 'Italian Streams',
-  description: 'Fetches m3u8 HLS streams from Italian stream sites via TMDb lookup',
+  name: 'MammaMia Node',
+  description: 'Fetches streams from Italian stream sites',
   catalogs: [],
   resources: ['stream'],
   types: ['movie', 'series'],
-  idPrefixes: ['tt']
+  idPrefixes: ['tt', 'kitsu']
 });
 
-/**
- * Stream handler: attempts both providers and aggregates available streams
- */
 builder.defineStreamHandler(async ({ type, id, season, episode }) => {
+    let imdbId = id;
+    let kitsuId = null;
+
+    if (id.startsWith('tt')) { // Handle IMDb IDs (e.g., id: "tt1234567")
+      if (type === 'series' && (!season || !episode) && id.includes(':')) {
+        const parts = id.split(':');
+        imdbId = parts[0];
+        season = parts[1] ? parseInt(parts[1], 10) : undefined;
+        episode = parts[2] ? parseInt(parts[2], 10) : undefined;
+      }
+      showName = await getShowNameFromCinemeta(type, imdbId);
+      console.log(`Cinemeta found show: ${showName} (${type}) with ID: ${imdbId}`);
+    } else if (id.startsWith('kitsu')) {  // Handle Kitsu IDs (e.g., id: "kitsu:10740:1") (requires Anime Kitsu Addon)
+      const parts = id.split(':');
+      kitsuId = parts[1];
+      season = parts[2] ? parseInt(parts[2], 10) : undefined;
+      episode = parts[3] ? parseInt(parts[3], 10) : undefined;
+      
+      showName = await getShowNameFromKitsu(kitsuId);
+      console.log(`Kitsu found show: ${showName} (${type}) with ID: ${kitsuId}`);
+    } else {
+      console.error(`Invalid ID format: ${id}. Expected 'tt' or 'kitsu' prefix.`);
+      return { streams: [] };
+    }
+
     const streams = [];
   
-    const imdbId = id;
     /*
     // Try LordChannel
     try {
-      const streamUrls = await lordchannel(imdbId, season, episode);
+      const streamUrls = await lordchannel(imdbId, showName, type, season, episode);
       if (streamUrls && streamUrls.stream) {
         streams.push({
           title: `LordChannel: ${type} ${imdbId}`,
@@ -47,7 +71,7 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
     */
     // Try StreamingCommunity
     try {
-      const streamUrls = await streamingcommunity(imdbId);
+      const streamUrls = await streamingcommunity(imdbId, showName, type, season, episode);
       if (streamUrls && streamUrls.stream) {
         streams.push({
           title: `StreamingCommunity: ${type} ${imdbId}`,
@@ -62,7 +86,7 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
 
     // Try StreamingWatch
     try {
-      const streamUrls = await streamingwatch(imdbId);
+      const streamUrls = await streamingwatch(imdbId, showName, type, season, episode);
       if (streamUrls && streamUrls.stream) {
         streams.push({
           title: `StreamingWatch: ${type} [unknownprovider]`,
@@ -77,7 +101,7 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
 
     // Try CB01
     try {
-      const streamUrls = await cb01(imdbId);
+      const streamUrls = await scrapeCb01(imdbId, showName, type, season, episode);
        if (streamUrls && Array.isArray(streamUrls.streams)) {
         streamUrls.streams.forEach(({ url, provider }) => {
           streams.push({
@@ -93,14 +117,13 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
     }
     // Try GuardaHD 
     try {
-      const streamUrls = await guardahd(imdbId);
+      const streamUrls = await scrapeGuardaHD(imdbId, showName, type, season, episode);
       if (streamUrls && Array.isArray(streamUrls.streams)) {
         streamUrls.streams.forEach(({ url, provider }) => {
           streams.push({
             title: `GuardaHD: ${type} [${provider}]`,
             url,
-            quality: 'Unknown',
-            isFree: true
+            quality: 'Unknown'
           });
         });
       }
@@ -109,7 +132,7 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
     }
     // Try AnimeUnity
     try {
-      const streamUrls = await animeunity(imdbId);
+      const streamUrls = await animeunity(kitsuId, showName, type, season, episode);
       if (streamUrls && Array.isArray(streamUrls.streams)) {
         streamUrls.streams.forEach(({ url, provider, dub }) => {
           streams.push({
@@ -130,4 +153,5 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
 // Start HTTP server (HTTP on localhost allowed by Stremio SDK)
 serveHTTP(builder.getInterface(), { port: 7000 }).then(() => {
   console.log('✅ MammaMia-Node Stremio add-on available at http://127.0.0.1:7000/manifest.json');
+  //open('https://staging.strem.io#?addonOpen=http://127.0.0.1:7000/manifest.json'); //FIXME: 'npm start -- --launch' should do this automatically
 });
