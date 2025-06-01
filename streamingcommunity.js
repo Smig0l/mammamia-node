@@ -3,179 +3,164 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const { getTMDbIdFromIMDb, getShowInfo } = require('./info');
 
-const SC_DOMAIN = process.env.SC_DOMAIN || 'https://streamingcommunity.ovh';
-const SC_FAST_SEARCH = process.env.SC_FAST_SEARCH || '0'; 
-
+const STREAM_SITE = process.env.SC_DOMAIN;
+const FAST_SEARCH = '1';
 const USER_AGENT = process.env.USER_AGENT || "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:127.0) Gecko/20100101 Firefox/127.0";
 
 /**
- * Get the inertia "version" token from main site
+ * Get the inertia version token from main site
  */
 async function getVersion() {
   try {
-    const resp = await axios.get(`${SC_DOMAIN}/richiedi-un-titolo`, {
+    const resp = await axios.get(`${STREAM_SITE}/richiedi-un-titolo`, {
       headers: { 'User-Agent': USER_AGENT }
     });
     const $ = cheerio.load(resp.data);
     const dataPage = JSON.parse($('#app').attr('data-page'));
     return dataPage.version;
   } catch (e) {
-    console.warn('getVersion failed, using default');
+    console.warn('❌ getVersion failed, using default');
     return '65e52dcf34d64173542cd2dc6b8bb75b';
   }
 }
 
 /**
- * Search for show/movie and return tid, slug, version
+ * Generic search function for both movies and series
  */
-async function search(queryUrl, date, isMovie, imdbId) {
-  const headers = {
-    'User-Agent': USER_AGENT,
-    'Accept': 'application/json'
-  };
-  // Ensure query URL is absolute
-  let url = queryUrl;
-  if (!url.match(/^https?:\/\//)) url = `${SC_DOMAIN}${queryUrl.startsWith('/') ? '' : '/'}${queryUrl}`;
+async function search(showName, imdbId) {
+  try {
+    const headers = {
+      'User-Agent': USER_AGENT,
+      'Accept': 'application/json'
+    };
+    
+    const query = `${STREAM_SITE}/api/search?q=${encodeURIComponent(showName)}`;
+    const resp = await axios.get(query, { headers });
 
-  const resp = await axios.get(url, { headers });
+    //console.log(resp.data);
 
-  for (const item of resp.data.data || []) {
-    const tid = item.id;
-    const slug = item.slug;
-    const type = item.type === 'tv' ? 0 : 1;
-    //console.log(tid, slug, type);
-    //if (type !== isMovie) co
-    let version;
+    for (const item of resp.data.data || []) {
+      const tid = item.id;
+      const slug = item.slug;
+      let version;
 
-    if (SC_FAST_SEARCH === '0') {
-      const pageUrl = `${SC_DOMAIN}/it/titles/${tid}-${slug}`;
-      //console.log(pageUrl);
-      const page = await axios.get(pageUrl, { headers });
-      const $ = cheerio.load(page.data);
-      const pdata = JSON.parse($('#app').attr('data-page'));
-      version = pdata.version;
-      if (imdbId.startsWith('tt')) {
-        const conv = await getTMDbIdFromIMDb(imdbId);
-        imdbId = String(conv.tmdbId);
+      if (FAST_SEARCH === '0') { //TODO:
+        const pageUrl = `${STREAM_SITE}/it/titles/${tid}-${slug}`;
+        const page = await axios.get(pageUrl, { headers });
+        const $ = cheerio.load(page.data);
+        const pdata = JSON.parse($('#app').attr('data-page'));
+        version = pdata.version;
+        
+        if (imdbId.startsWith('tt')) {
+          const conv = await getTMDbIdFromIMDb(imdbId);
+          imdbId = String(conv.tmdbId);
+        }
+        const tmdbId = String(pdata.props.title.tmdb_id);
+        
+        if (tmdbId !== imdbId) continue;
+      } else {
+        version = await getVersion();
       }
-      const tmdbId = String(pdata.props.title.tmdb_id);
-      
-      if (tmdbId !== imdbId) continue;
-    } else {
-      version = await getVersion();
+
+      return { tid, slug, version };
+    }
+    return null;
+  } catch (error) {
+    console.error('❌ Search error:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Extract player page links for both movies and series
+ */
+async function parsePlayerPage(tid, version, episodeId = null) {
+  try {
+    const headers = {
+      'User-Agent': USER_AGENT,
+      'x-inertia': 'true',
+      'x-inertia-version': version,
+      'Referer': `${STREAM_SITE}/`,
+      'Origin': `${STREAM_SITE}`
+    };
+
+    // Build iframe URL based on content type
+    let iframeUrl = `${STREAM_SITE}/it/iframe/${tid}`;
+    if (episodeId) {
+      iframeUrl += `?episode_id=${episodeId}&next_episode=1`;
     }
 
-    return { tid, slug, version };
-  }
-  throw new Error('No matching result');
-}
+    const resp = await axios.get(iframeUrl, { headers });
+    const $ = cheerio.load(resp.data);
+    let iframeSrc = $('iframe').attr('src');
+    
+    if (!iframeSrc.match(/^https?:\/\//)) {
+      iframeSrc = `${STREAM_SITE}${iframeSrc}`;
+    }
 
-/**
- * Get m3u8 link from VixCloud for movie
- */
-async function getFilm(tid, version) {
-  /*
-  if (MFP === '1') {
-    return { url: `${SC_DOMAIN}/iframe/${tid}`, quality: 'Unknown' };
-  }
-    */
-  const headers = {
-    'User-Agent': USER_AGENT,
-    'user-agent': USER_AGENT,
-    'x-inertia': 'true',
-    'x-inertia-version': version,
-    'Referer': `${SC_DOMAIN}/`,
-    'Origin': `${SC_DOMAIN}`
-  };
-  const resp = await axios.get(`${SC_DOMAIN}/it/iframe/${tid}`, { headers });
-  //console.log(resp.data);
-  const $ = cheerio.load(resp.data);
-  let iframeSrc = $('iframe').attr('src');
-  //console.log(iframeSrc);
-  if (!iframeSrc.match(/^https?:\/\//)) iframeSrc = `${SC_DOMAIN}${iframeSrc}`;
-  //console.log(iframeSrc);
-  const embedResp = await axios.get(iframeSrc, { headers });
-  //console.log("EMBED", embedResp.data);
-  const script = cheerio.load(embedResp.data)('body script').text();
-  //console.log("SCRIPT",script);
-  const token = /'token':\s*'([\w-]+)'/.exec(script)[1];
-  const expires = /'expires':\s*'(\d+)'/.exec(script)[1];
-  const quality = /"quality":(\d+)/.exec(script)[1];
-  const id = iframeSrc.split('/embed/')[1].split('?')[0];
-  const stream = `https://vixcloud.co/playlist/${id}.m3u8?token=${token}&expires=${expires}`;
-  //console.log("M3U8", m3u8, quality);
-  console.log('✅ StreamingCommunity Stream URL:', stream, '📺 Quality:', quality);
-  return { stream, quality };
-}
+    const embedResp = await axios.get(iframeSrc, { headers });
+    const script = cheerio.load(embedResp.data)('body script').text();
 
-/**
- * Get specific episode ID for TV shows
- */
-async function getSeasonEpisodeId(tid, slug, season, episode) {
-  const headers = {
-    'User-Agent': USER_AGENT,
-    'x-inertia': 'true'
-  };
-  const resp = await axios.get(`${SC_DOMAIN}/titles/${tid}-${slug}/season-${season}`, { headers });
-  const episodes = resp.data.props.loadedSeason.episodes || [];
-  const found = episodes.find(e => e.number === episode);
-  return found ? found.id : null;
-}
+    // Extract stream info
+    const token = /'token':\s*'([\w-]+)'/.exec(script)?.[1];
+    const expires = /'expires':\s*'(\d+)'/.exec(script)?.[1];
+    const quality = /"quality":(\d+)/.exec(script)?.[1] || "unknown";
+    const id = iframeSrc.split('/embed/')[1].split('?')[0];
 
-/**
- * Get m3u8 link for a series episode
- */
-async function getEpisodeLink(episodeId, tid, version) {
-  /*
-  if (MFP === '1') {
-    return { url: `${SC_DOMAIN}/it/iframe/${tid}?episode_id=${episodeId}&next_episode=1`, quality: 'Unknown' };
-  }
-    */
-  const headers = {
-    'User-Agent': USER_AGENT,
-    'x-inertia': 'true',
-    'x-inertia-version': version
-  };
-  let iframeUrl = `${SC_DOMAIN}/it/iframe/${tid}?episode_id=${episodeId}&next_episode=1`;
-  const resp = await axios.get(iframeUrl, { headers });
-  const $ = cheerio.load(resp.data);
-  let iframeSrc = $('iframe').attr('src');
-  if (!iframeSrc.match(/^https?:\/\//)) iframeSrc = `${SC_DOMAIN}${iframeSrc}`;
-  const embedResp = await axios.get(iframeSrc, { headers });
-  const script = cheerio.load(embedResp.data)('body script').text();
-  const token = /'token':\s*'([\w-]+)'/.exec(script)[1];
-  const expires = /'expires':\s*'(\d+)'/.exec(script)[1];
-  const quality = /"quality":(\d+)/.exec(script)[1];
-  const id = iframeSrc.split('/embed/')[1].split('?')[0];
-  const m3u8 = `https://vixcloud.co/playlist/${id}.m3u8?token=${token}&expires=${expires}`;
-  return { url: m3u8, quality };
-}
+    if (token && expires && id) {
+      const stream = `https://vixcloud.co/playlist/${id}.m3u8?token=${token}&expires=${expires}`;
+      console.log('✅ StreamingCommunity Stream URL:', stream, '📺 Quality:', quality);
+      return { stream, quality };
+    }
 
-/**
- * Main export: streamingCommunity(imdbId) -> [url, quality]
- */
-async function streamingcommunity(imdbId) {
-  const info = await getTMDbIdFromIMDb(imdbId);
-  const { isMovie, tmdbId } = info;
-  const showInfo = await getShowInfo(tmdbId, isMovie);
-  const showName = encodeURIComponent(showInfo.showName.replace(/\s+/g, '+'));
-  const queryPath = `/api/search?q=${showName}`;
-  const { tid, slug, version } = await search(queryPath, showInfo.year, isMovie, imdbId);
-  if (isMovie) {
-    const { stream, quality } = await getFilm(tid, version);
-    return { stream, quality };
-  } else {
-    const episodeId = await getSeasonEpisodeId(tid, slug, showInfo.season, showInfo.episode);
-    const { stream, quality } = await getEpisodeLink(episodeId, tid, version);
-    return { stream, quality };
+    console.error('❌ StreamingCommunity: Could not extract stream info');
+    return null;
+
+  } catch (error) {
+    console.error('❌ Error in parsePlayerPage:', error.message);
+    return null;
   }
 }
 
-module.exports = { streamingcommunity };
+/**
+ * Main StreamingCommunity scraper function
+ */
+async function scrapeStreamingCommunity(imdbId, showName, type, season = null, episode = null) {
+  try {
+    const searchResult = await search(showName, imdbId);
+    if (!searchResult) {
+      console.error(`❌ StreamingCommunity: No ${type} found for "${showName}"`);
+      return null;
+    }
+
+    const { tid, slug, version } = searchResult;
+    let episodeId = null;
+
+    if (type === 'series' && season && episode) {
+      episodeId = await getSeasonEpisodeId(tid, slug, season, episode); //TODO:
+      if (!episodeId) {
+        console.error(`❌ StreamingCommunity: Episode not found - S${season}E${episode}`);
+        return null;
+      }
+    }
+
+    const result = await parsePlayerPage(tid, version, episodeId);
+    return result;
+
+  } catch (error) {
+    console.error('❌ StreamingCommunity Error:', error.message);
+    return null;
+  }
+}
+
+// Update exports
+module.exports = { scrapeStreamingCommunity };
 
 /*
-// Example test:
+// Test the code
 (async () => {
-  await streamingcommunity('tt6857112');
-})(); 
+  // Uncomment to test:
+  //const movie = await scrapeStreamingCommunity('tt28309594', 'Nonnas', 'movie');
+  //const series = await scrapeStreamingCommunity('tt3581920', 'The Last of Us', 'series', 1, 1);
+})();
 */

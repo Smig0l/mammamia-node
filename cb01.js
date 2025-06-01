@@ -91,18 +91,24 @@ async function scrapeCb01(imdbId, showName, type, season = null, episode = null)
       return null;
     }
 
-    let streams;
+    let streams = [];
 
     playerLinks = await parsePlayerPage(results, type, season, episode);
 
     if (!playerLinks?.length) {
       console.error('❌ CB01: No links found in player page');
       return null;
+    } else{
+      //console.log('✅ CB01 Player Links:', playerLinks);
+      for (const link of playerLinks) {
+        const protectedstreamlink = await bypassProtectedLink(link);
+        if (protectedstreamlink) {
+          //console.log('✅ CB01 Protected Stream Link:', protectedstreamlink);
+          const streamObj = await extractDirectLink(protectedstreamlink);
+          if (streamObj) streams.push(streamObj);
+        }
+      }
     }
-
-    protectedstreamlinks = await bypassProtectedLink(playerLinks); //FIXME: foreach?
-
-    streams = await extractDirectLink(protectedstreamlinks); //FIXME: foreach?
 
     console.log('✅ CB01 Stream URLs:', streams);
     return { streams };
