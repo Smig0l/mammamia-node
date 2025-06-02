@@ -1,11 +1,9 @@
 require('dotenv').config();
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { getTMDbIdFromIMDb, getShowInfo } = require('./info');
 
 const STREAM_SITE = process.env.SC_DOMAIN;
-const FAST_SEARCH = '1';
-const USER_AGENT = process.env.USER_AGENT || "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:127.0) Gecko/20100101 Firefox/127.0";
+const USER_AGENT = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:127.0) Gecko/20100101 Firefox/127.0";
 
 /**
  * Get the inertia version token from main site
@@ -21,6 +19,32 @@ async function getVersion() {
   } catch (e) {
     console.warn('❌ getVersion failed, using default');
     return '65e52dcf34d64173542cd2dc6b8bb75b';
+  }
+}
+
+async function getSeasonEpisodeId(tid, slug, season, episode) {
+  try {
+    const headers = {
+      'User-Agent': USER_AGENT,
+      'Accept': 'application/json',
+      'X-Inertia': 'true',
+      'X-Inertia-Version': await getVersion()
+    };
+
+    const resp = await axios.get(`${STREAM_SITE}/it/titles/${tid}-${slug}/season-${season}`, {
+      headers  
+    });
+    //console.log('getSeasonEpisodeId response:', resp.data);
+    if (resp.data.props?.loadedSeason?.episodes) {
+      const foundEpisode = resp.data.props.loadedSeason.episodes.find(
+        ep => ep.number === episode
+      );
+      if (foundEpisode) {
+        return foundEpisode.id;
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error in getSeasonEpisodeId:', error.message);
   }
 }
 
@@ -42,25 +66,7 @@ async function search(showName, imdbId) {
     for (const item of resp.data.data || []) {
       const tid = item.id;
       const slug = item.slug;
-      let version;
-
-      if (FAST_SEARCH === '0') { //TODO:
-        const pageUrl = `${STREAM_SITE}/it/titles/${tid}-${slug}`;
-        const page = await axios.get(pageUrl, { headers });
-        const $ = cheerio.load(page.data);
-        const pdata = JSON.parse($('#app').attr('data-page'));
-        version = pdata.version;
-        
-        if (imdbId.startsWith('tt')) {
-          const conv = await getTMDbIdFromIMDb(imdbId);
-          imdbId = String(conv.tmdbId);
-        }
-        const tmdbId = String(pdata.props.title.tmdb_id);
-        
-        if (tmdbId !== imdbId) continue;
-      } else {
-        version = await getVersion();
-      }
+      let version = await getVersion();
 
       return { tid, slug, version };
     }
@@ -137,7 +143,7 @@ async function scrapeStreamingCommunity(imdbId, showName, type, season = null, e
     let episodeId = null;
 
     if (type === 'series' && season && episode) {
-      episodeId = await getSeasonEpisodeId(tid, slug, season, episode); //TODO:
+      episodeId = await getSeasonEpisodeId(tid, slug, season, episode);
       if (!episodeId) {
         console.error(`❌ StreamingCommunity: Episode not found - S${season}E${episode}`);
         return null;

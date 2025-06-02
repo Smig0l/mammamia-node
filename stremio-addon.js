@@ -4,7 +4,7 @@ const { addonBuilder, serveHTTP } = require('stremio-addon-sdk');
 const { getShowNameFromCinemeta, getShowNameFromKitsu } = require('./utils/mediainfo');
 
 const { lordchannel } = require('./lordchannel'); //FIXME:
-const { streamingcommunity } =  require('./streamingcommunity');
+const { scrapeStreamingCommunity } =  require('./streamingcommunity');
 const { streamingwatch } = require('./streamingwatch');
 const { scrapeCb01 } = require('./cb01');
 const { scrapeGuardaHD } = require('./guardahd');
@@ -71,7 +71,7 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
     */
     // Try StreamingCommunity
     try {
-      const streamUrls = await streamingcommunity(imdbId, showName, type, season, episode);
+      const streamUrls = await scrapeStreamingCommunity(imdbId, showName, type, season, episode);
       if (streamUrls && streamUrls.stream) {
         streams.push({
           title: `StreamingCommunity: ${type} ${imdbId}`,
