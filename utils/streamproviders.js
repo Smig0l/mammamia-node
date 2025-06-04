@@ -165,7 +165,7 @@ async function extractDirectLink(link) {
     return url ? { url, provider: 'mixdrop' } : null;
   }else if (link.includes('dood')) {
     url = await getDoodStreamLink(link);
-    return url ? { url, provider: 'dood' } : null;
+    return url ? { url, provider: 'dood ⭐' } : null;
   } else if (link.includes('maxstream')) {
     url = await getMaxStreamLink(link);
     return url ? { url, provider: 'maxstream' } : null;

@@ -122,7 +122,6 @@ async function scrapeCb01(imdbId, showName, type, season = null, episode = null)
 module.exports = { scrapeCb01 };
 
 /*
-// Test the refactored code
 (async () => {
   console.log("TESTING: ", STREAM_SITE);
   // Uncomment to test:

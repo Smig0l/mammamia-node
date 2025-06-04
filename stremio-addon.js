@@ -9,7 +9,7 @@ const { streamingwatch } = require('./streamingwatch');
 const { scrapeCb01 } = require('./cb01');
 const { scrapeGuardaHD } = require('./guardahd');
 const { filmpertutti } = require('./filmpertutti'); //TODO:
-const { tantifilm } = require('./tantifilm'); //TODO:
+const { scrapeTantiFilm } = require('./tantifilm'); //FIXME: protected by Cloudflare
 const { animeworld } = require('./animeworld'); //TODO:
 const { animeunity } = require('./animeunity');
 
