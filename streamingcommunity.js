@@ -82,6 +82,9 @@ async function search(showName, imdbId) {
  */
 async function parsePlayerPage(tid, version, episodeId = null) {
   try {
+
+    const playerLinks = [];
+
     const headers = {
       'User-Agent': USER_AGENT,
       'x-inertia': 'true',
@@ -110,13 +113,12 @@ async function parsePlayerPage(tid, version, episodeId = null) {
     // Extract stream info
     const token = /'token':\s*'([\w-]+)'/.exec(script)?.[1];
     const expires = /'expires':\s*'(\d+)'/.exec(script)?.[1];
-    const quality = /"quality":(\d+)/.exec(script)?.[1] || "unknown";
     const id = iframeSrc.split('/embed/')[1].split('?')[0];
 
     if (token && expires && id) {
-      const stream = `https://vixcloud.co/playlist/${id}.m3u8?token=${token}&expires=${expires}`;
-      console.log('✅ StreamingCommunity Stream URL:', stream, '📺 Quality:', quality);
-      return { stream, quality };
+      const stream = `https://vixcloud.co/playlist/${id}.m3u8?token=${token}&expires=${expires}&h=1&lang=it`;
+      playerLinks.push(stream);
+      return playerLinks;
     }
 
     console.error('❌ StreamingCommunity: Could not extract stream info');
@@ -150,8 +152,23 @@ async function scrapeStreamingCommunity(imdbId, showName, type, season = null, e
       }
     }
 
-    const result = await parsePlayerPage(tid, version, episodeId);
-    return result;
+    let streams = [];
+
+    playerLinks = await parsePlayerPage(tid, version, episodeId);
+    if (!playerLinks?.length) {
+      console.error('❌ StreamingCommunity: No links found in player page');
+      return null;
+    } else {
+      //console.log('✅ StreamingCommunity Player Links:', playerLinks);
+      for (const link of playerLinks) {
+          const streamObj = { url: link, provider: 'vixcloud' };
+          if (streamObj) streams.push(streamObj);
+        
+      }
+    }
+
+    console.log('✅ StreamingCommunity Stream URLs:', streams);
+    return { streams };
 
   } catch (error) {
     console.error('❌ StreamingCommunity Error:', error.message);

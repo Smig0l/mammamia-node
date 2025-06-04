@@ -72,12 +72,14 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
     // Try StreamingCommunity
     try {
       const streamUrls = await scrapeStreamingCommunity(imdbId, showName, type, season, episode);
-      if (streamUrls && streamUrls.stream) {
-        streams.push({
-          title: `StreamingCommunity: ${type} ${imdbId}`,
-          url: streamUrls.stream,
-          quality: streamUrls.quality || 'Unknown',
-          isFree: true
+       if (streamUrls && Array.isArray(streamUrls.streams)) {
+        streamUrls.streams.forEach(({ url, provider }) => {
+          streams.push({
+            title: `StreamingCommunity: ${type} [${provider}]`,
+            url,
+            quality: 'Unknown',
+            isFree: true
+          });
         });
       }
     } catch (err) {

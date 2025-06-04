@@ -96,7 +96,7 @@ async function scrapeTantiFilm(imdbId, showName, type, season = null, episode = 
       }
     }
 
-    console.log('✅ CB01 Stream URLs:', streams);
+    console.log('✅ TantiFilm Stream URLs:', streams);
     return { streams };
     
 }
