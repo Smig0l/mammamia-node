@@ -10,8 +10,8 @@ const { scrapeCb01 } = require('./cb01');
 const { scrapeGuardaHD } = require('./guardahd');
 const { filmpertutti } = require('./filmpertutti'); //TODO:
 const { scrapeTantiFilm } = require('./tantifilm'); //FIXME: protected by Cloudflare
-const { animeworld } = require('./animeworld'); //TODO:
-const { animeunity } = require('./animeunity');
+const { scrapeAnimeWorld } = require('./animeworld');
+const { scrapeAnimeUnity } = require('./animeunity');
 
 
 const builder = new addonBuilder({
@@ -41,11 +41,11 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
     } else if (id.startsWith('kitsu')) {  // Handle Kitsu IDs (e.g., id: "kitsu:10740:1") (requires Anime Kitsu Addon)
       const parts = id.split(':');
       kitsuId = parts[1];
-      season = parts[2] ? parseInt(parts[2], 10) : undefined;
-      episode = parts[3] ? parseInt(parts[3], 10) : undefined;
+      season = 1; // Kitsu addon do not return season info, so we default to 1
+      episode = parts[2] ? parseInt(parts[2], 10) : undefined;
       
       showName = await getShowNameFromKitsu(kitsuId);
-      console.log(`Kitsu found show: ${showName} (${type}) with ID: ${kitsuId}`);
+      console.log(`Kitsu found show: ${showName.en} (${type}) with ID: ${kitsuId}`);
     } else {
       console.error(`Invalid ID format: ${id}. Expected 'tt' or 'kitsu' prefix.`);
       return { streams: [] };
@@ -149,7 +149,7 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
     }
     // Try AnimeUnity
     try {
-      const streamUrls = await animeunity(kitsuId, showName, type, season, episode);
+      const streamUrls = await scrapeAnimeUnity(kitsuId, showName.en, type, season, episode);
       if (streamUrls && Array.isArray(streamUrls.streams)) {
         streamUrls.streams.forEach(({ url, provider, dub }) => {
           streams.push({
@@ -162,6 +162,22 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
       }
     } catch (err) {
       console.error('AnimeUnity error:', err.message);
+    }
+    // Try AnimeWorld
+    try {
+      const streamUrls = await scrapeAnimeWorld(kitsuId, showName.en_jp, type, season, episode);
+      if (streamUrls && Array.isArray(streamUrls.streams)) {
+        streamUrls.streams.forEach(({ url, provider, dub }) => {
+          streams.push({
+            title: `AnimeWorld: ${type} - ${dub} [${provider}]`,
+            url,
+            quality: 'Unknown',
+            isFree: true
+          });
+        });
+      }
+    } catch (err) {
+      console.error('AnimeWorld error:', err.message);
     }
   
     return { streams };

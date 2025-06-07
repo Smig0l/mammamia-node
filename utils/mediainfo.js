@@ -17,7 +17,8 @@ async function getShowNameFromKitsu(kitsuId) {
   try {
     const resp = await axios.get(`https://kitsu.io/api/edge/anime/${kitsuId}`);
     if (resp.data && resp.data.data && resp.data.data.attributes) {
-      return resp.data.data.attributes.canonicalTitle || 'Unknown';
+      //console.log('Kitsu response:', resp.data.data.attributes);
+      return resp.data.data.attributes.titles ;
     }
   } catch (err) {
     console.error('Kitsu fetch error:', err.message);

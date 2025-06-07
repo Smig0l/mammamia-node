@@ -2,11 +2,11 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 require('dotenv').config();
 
-const AU_DOMAIN = process.env.AU_DOMAIN || 'https://www.animeunity.so';
+const STREAM_SITE = process.env.AU_DOMAIN || 'https://www.animeunity.so';
 
 async function search(showName) {
     // Step 1: Get CSRF token and session cookie
-    const mainPage = await axios.get(AU_DOMAIN, {
+    const mainPage = await axios.get(STREAM_SITE, {
         headers: {
             'User-Agent': 'Mozilla/5.0'
         }
@@ -17,13 +17,13 @@ async function search(showName) {
     const sessionCookie = cookies.map(c => c.split(';')[0]).join('; ');
 
     // Step 2: Use them in the POST request
-    const url = `${AU_DOMAIN}/livesearch`;
+    const url = `${STREAM_SITE}/livesearch`;
     const headers = { 
         'User-Agent': 'Mozilla/5.0',
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Referer': AU_DOMAIN,
-        'Origin': AU_DOMAIN,
+        'Referer': STREAM_SITE,
+        'Origin': STREAM_SITE,
         'x-requested-with': 'XMLHttpRequest',
         'X-CSRF-TOKEN': csrfToken,
         'Cookie': sessionCookie
@@ -151,11 +151,11 @@ function collectSeasons(mainInfo) {
     });
 }
 
-async function animeunity(kitsuId, showName, type, season, episode) {
+async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
     try {
 
         // Get session cookie for subsequent requests
-        const mainPage = await axios.get(AU_DOMAIN, {
+        const mainPage = await axios.get(STREAM_SITE, {
             headers: { 'User-Agent': 'Mozilla/5.0' }
         });
         const cookies = mainPage.headers['set-cookie'] || [];
@@ -163,7 +163,7 @@ async function animeunity(kitsuId, showName, type, season, episode) {
 
         const searchResult = await search(showName);
 
-        if (!searchResult || !Array.isArray(searchResult.records)) {
+        if (!searchResult || !Array.isArray(searchResult.records)) { //FIXME: better search results
             return null;
         }
 
@@ -223,7 +223,7 @@ async function animeunity(kitsuId, showName, type, season, episode) {
         // For each record, fetch the real stream URL from the player page
         const streams = [];
         for (const record of recordsToUse) {
-            const animePageUrl = `${AU_DOMAIN}/anime/${record.id}-${record.slug}`;
+            const animePageUrl = `${STREAM_SITE}/anime/${record.id}-${record.slug}`;
             const streamUrl = await extractStreamUrl(animePageUrl, sessionCookie);
             if (streamUrl) {
                 streams.push({
@@ -244,12 +244,11 @@ async function animeunity(kitsuId, showName, type, season, episode) {
     }
 }
 
-module.exports = { animeunity };
+module.exports = { scrapeAnimeUnity };
 
 /*
 (async () => {
-    //const results = await animeunity("tt9335498:1:1"); 
-    //const results = await animeunity("tt11032374", "Demon Slayer: Kimetsu no Yaiba - The Movie: Mugen Train", "movie", null, null);
-    console.log(results);
+    const serie = await scrapeAnimeUnity("7442", "Attack on Titan", "series", 1, 1);
+
 })();
 */

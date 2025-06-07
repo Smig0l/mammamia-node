@@ -1,120 +1,112 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { getKitsuInfo, getTMDbIdFromIMDb, getShowInfo } = require('./info.js');
 require('dotenv').config();
 
-const AW_DOMAIN = process.env.AW_DOMAIN || 'https://www.animeworld.ac';
-const months = {
-    "Gennaio": "January", "Febbraio": "February", "Marzo": "March",
-    "Aprile": "April", "Maggio": "May", "Giugno": "June",
-    "Luglio": "July", "Agosto": "August", "Settembre": "September",
-    "Ottobre": "October", "Novembre": "November", "Dicembre": "December"
-};
-const showname_replace = {
-    "Attack on Titan": "L'attacco dei Giganti",
-    "Season": "",
-    "  ": " ",
-    "Shippuuden": "Shippuden",
-    " ": "+",
-    "Solo+Leveling+2": "Solo+Leveling+2:",
-    "-": ""
-};
+const STREAM_SITE = process.env.AW_DOMAIN || 'https://www.animeworld.ac';
 
-// --- Get MP4 Link ---
-async function get_mp4(anime_url, ismovie, episode) {
-    let response = await axios.get(anime_url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-    let $ = cheerio.load(response.data);
-
-    if (!ismovie) {
-        // Find episode page
-        const episodeLink = $(`a[data-episode-num="${episode}"]`).attr('href');
-        if (!episodeLink) return null;
-        response = await axios.get(`${AW_DOMAIN}${episodeLink}`, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-        $ = cheerio.load(response.data);
-    }
-
-    const a_tag = $('a#alternativeDownloadLink.m-1.btn.btn-sm.btn-primary');
-    if (!a_tag.length) return null;
-    let url = a_tag.attr('href');
-    // Optionally, check if the link is valid (HEAD request)
+async function parsePlayerPage(anime_url, type, season, episode) {
     try {
-        const head = await axios.head(url);
-        if (head.status === 404) url = null;
-    } catch {
-        url = null;
+
+        let response = await axios.get(`${STREAM_SITE}${anime_url}`, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        let $ = cheerio.load(response.data);
+        //console.log('Parsed player page', response.data);
+
+        const links = [];
+
+        if (type !== "movie") {
+            const episodeLink = $(`a[data-episode-num="${episode}"]`).attr('href');
+            if (!episodeLink) return null;
+            response = await axios.get(`${STREAM_SITE}${episodeLink}`, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+            $ = cheerio.load(response.data);
+            //console.log('Parsed episode page',`${STREAM_SITE}${episodeLink}`, response.data);
+
+            /* comment out because player are simply embeds of download links
+            const playerEpId = $('#player').attr('data-id');
+            console.log('Player found:', playerEpId);
+            links.push(`${STREAM_SITE}/api/episode/serverPlayerAnimeWorld?id=${playerEpId}`);
+            links.push(`${STREAM_SITE}/api/episode/serverPlayerAnimeWorld?alt=1&id=${playerEpId}`);
+            */
+            const downloadUrl = $('#download #downloadLink').attr('href');
+            if (downloadUrl) links.push(downloadUrl);
+            const alternativeDownloadUrl = $('#download #alternativeDownloadLink').attr('href');
+            if (alternativeDownloadUrl) links.push(alternativeDownloadUrl);
+
+        }
+
+        return links;
+
+    } catch (error) {
+        console.error('❌ AnimeWorld Error parsing player page:', error.message);
+        return null;
     }
-    return url;
+
 }
 
-// --- Search Anime ---
-async function search(showname, date, ismovie, episode) {
-    const search_year = date.slice(0, 4);
-    const keyword = encodeURIComponent(showname.replace(/\+/g, ' '));
-    const url = `${AW_DOMAIN}/api/search/v2?keyword=${keyword}`; //FIXME: search keyword does not correspond to tmdb showname
-
-    // Required headers for the API
-    const headers = {
-        'User-Agent': 'Mozilla/5.0',
-        'Accept': 'application/json, text/javascript, */*; q=0.01',
-        'Referer': `${AW_DOMAIN}/search?keyword=${keyword}`,
-        'Origin': AW_DOMAIN,
-        'X-Requested-With': 'XMLHttpRequest'
-    };
-
-    // POST request (even if no body)
-    console.log(showname, url);
-    const response = await axios.post(url, {}, { headers });
-    console.log(response.data);
-    const animes = response.data.animes || [];
-    const final_urls = [];
-
-    for (const anime of animes) {
-        // Parse and normalize release date
-        let release_date = anime.release;
-        for (const [ita, eng] of Object.entries(months)) {
-            release_date = release_date.replace(ita, eng);
-        }
-        const release_date_object = new Date(Date.parse(release_date));
-        const date_object = new Date(Date.parse(date));
-        const release_date_str = release_date_object.toISOString().slice(0, 10);
-        const date_str = date_object.toISOString().slice(0, 10);
-
-        // Accept ±1 day difference
-        const plusOne = new Date(date_object); plusOne.setDate(plusOne.getDate() + 1);
-        const minusOne = new Date(date_object); minusOne.setDate(minusOne.getDate() - 1);
-        const plusOneStr = plusOne.toISOString().slice(0, 10);
-        const minusOneStr = minusOne.toISOString().slice(0, 10);
-
-        if ([date_str, plusOneStr, minusOneStr].includes(release_date_str)) {
-            // Build anime info URL
-            const anime_url = `${AW_DOMAIN}/${anime.link}`;
-            const final_url = await get_mp4(anime_url, ismovie, episode);
-            if (final_url) final_urls.push(final_url);
-        }
-    }
-    return final_urls;
-}
-
-// --- Main AnimeWorld Function ---
-async function animeworld(id) {
+async function search(showname, type, episode) {
     try {
-            const { isMovie, tmdbId } = await getTMDbIdFromIMDb(id);
-            const { showName, year } = await getShowInfo(tmdbId, isMovie);
-            const episode = null;
-        
-        const final_urls = await search(showName, year, isMovie, episode);
-        return final_urls;
-    } catch (e) {
-        console.error("Animeworld failed", e);
+        const keyword = encodeURIComponent(showname.replace(/\+/g, ' '));
+        //const url = `${STREAM_SITE}/api/search/v2?keyword=${keyword}`; //TODO:FIXME: axios post tls error, would be better because returns json
+        const url = `${STREAM_SITE}/filter?sort=2&keyword=${keyword}`;
+
+        const headers = {
+            'User-Agent': 'Mozilla/5.0',
+            'Accept': 'application/json, text/javascript, */*; q=0.01',
+            'Referer': `${STREAM_SITE}/search?keyword=${keyword}`,
+            'Origin': STREAM_SITE,
+            'X-Requested-With': 'XMLHttpRequest'
+        };
+
+        const response = await axios.get(url, {}, { headers });
+        //console.log(response.data);
+        const $ = cheerio.load(response.data);
+
+        const firstLink = $('.film-list .item .inner a').first().attr('href'); //FIXME: parse correct link
+        //console.log('First link found:', firstLink);
+        return firstLink;
+    } catch (error) {
+        console.error('❌ AnimeWorld search error:', error.message);
         return null;
     }
 }
 
-module.exports = { animeworld };
+async function scrapeAnimeWorld(kitsuId, showName, type, season, episode) {
+    try {
+        console.log(`AnimeWorld: Fetching streams for ${showName} (Type: ${type}, Season: ${season}, Episode: ${episode})`);
+        const results = await search(showName);  //FIXME: some showName may not be found because of language differences and search engine
+        if (!results) {
+            console.error(`❌ AnimeWorld: No results found for "${showName}"`);
+            return null;
+        }   
 
-/*
-(async () => {
-    const results = await animeworld("tt11032374");
-    console.log(results);
+        let streams = [];
+        let playerLinks = [];
+
+        playerLinks = await parsePlayerPage(results, type, season, episode);
+        if (!playerLinks?.length) {
+            console.error('❌ AnimeWorld: No links found in player page');
+            return null;
+        } else {
+      //console.log('✅ AnimeWorld Player Links:', playerLinks);
+      for (const link of playerLinks) {
+          const streamObj = { url: link, provider: 'Unknown', dub: 'Unknown' };
+          if (streamObj) streams.push(streamObj);
+        
+      }
+    }
+
+    console.log('✅ AnimeWorld Stream URLs:', streams);
+    return { streams };
+
+    } catch (e) {
+        console.error("AnimeWorld failed", e);
+        return null;
+    }
+}
+
+module.exports = { scrapeAnimeWorld };
+
+(async () => { 
+    //const serie = await scrapeAnimeWorld("7442", "Shingeki no Kyojin", "series", 1, 1);
+
 })();
-*/
+
