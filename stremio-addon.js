@@ -5,7 +5,7 @@ const { getShowNameFromCinemeta, getShowNameFromKitsu } = require('./utils/media
 
 const { lordchannel } = require('./lordchannel'); //FIXME:
 const { scrapeStreamingCommunity } =  require('./streamingcommunity');
-const { streamingwatch } = require('./streamingwatch');
+const { streamingwatch } = require('./streamingwatch'); //FIXME:
 const { scrapeCb01 } = require('./cb01');
 const { scrapeGuardaHD } = require('./guardahd');
 const { filmpertutti } = require('./filmpertutti'); //TODO:
@@ -131,6 +131,21 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
       }
     } catch (err) {
       console.error('GuardaHD error:', err.message);
+    }
+    // Try TantiFilm
+    try {
+      const streamUrls = await scrapeTantiFilm(imdbId, showName, type, season, episode);
+      if (streamUrls && Array.isArray(streamUrls.streams)) {
+        streamUrls.streams.forEach(({ url, provider }) => {
+          streams.push({
+            title: `TantiFilm: ${type} [${provider}]`,
+            url,
+            quality: 'Unknown'
+          });
+        });
+      }
+    } catch (err) {
+      console.error('TantiFilm error:', err.message);
     }
     // Try AnimeUnity
     try {

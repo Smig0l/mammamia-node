@@ -22,7 +22,7 @@ async function parsePlayerPage(link, type, season, episode) {
             
             if (match) {
                 //console.log('Found player URL:', match[1]);
-                return match[1];
+                //return match[1];
                 //TODO: it just embeds the GuardaHD page...
             }
             
@@ -82,6 +82,8 @@ async function scrapeTantiFilm(imdbId, showName, type, season = null, episode = 
         console.error(`❌ TantiFilm: No results found for "${showName}"`);
         return null;
     }   
+
+    let streams = [];
 
     playerLinks = await parsePlayerPage(results, type, season, episode);
     if (!playerLinks?.length) {

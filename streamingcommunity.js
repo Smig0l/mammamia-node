@@ -106,6 +106,7 @@ async function parsePlayerPage(tid, version, episodeId = null) {
     if (!iframeSrc.match(/^https?:\/\//)) {
       iframeSrc = `${STREAM_SITE}${iframeSrc}`;
     }
+    //console.log('StreamingCommunity iframeSrc:', iframeSrc);
 
     const embedResp = await axios.get(iframeSrc, { headers });
     const script = cheerio.load(embedResp.data)('body script').text();
@@ -116,7 +117,14 @@ async function parsePlayerPage(tid, version, episodeId = null) {
     const id = iframeSrc.split('/embed/')[1].split('?')[0];
 
     if (token && expires && id) {
-      const stream = `https://vixcloud.co/playlist/${id}.m3u8?token=${token}&expires=${expires}&h=1&lang=it`;
+      let stream = `https://vixcloud.co/playlist/${id}.m3u8?token=${token}&expires=${expires}`;
+      if (iframeSrc.includes('canPlayFHD=1')) {
+        stream += '&h=1';
+      };
+      if (iframeSrc.includes('lang')) {
+        stream += '&lang=it';
+      };
+
       playerLinks.push(stream);
       return playerLinks;
     }
