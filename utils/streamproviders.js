@@ -62,6 +62,7 @@ async function getMixDropLink(link) {
       link = link.replace(/mixdrop\.(ag|club)/, 'mixdrop.my').split('/2')[0];;
   
       const headers = {
+        'Referer': link,
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
       };
   
@@ -88,8 +89,8 @@ async function getMixDropLink(link) {
         finalUrl += mapping[char] || char;
       }
   
-      //console.log(finalUrl);
-      return finalUrl;
+      //console.log(finalUrl);    
+      return { url: finalUrl, headers };
     } catch (error) {
       console.error('Error in getMixDropLink:', error.message);
       return null;
@@ -121,6 +122,7 @@ async function getDoodStreamLink(link) {
     // Regex to extract the pass_md5 and token/expiry
     const pattern = /(\/pass_md5\/.*?)'.*(\?token=.*?expiry=)/s;
     const match = response.data.match(pattern);
+    //console.log(response.data); //FIXME: in prod i get no match, but in dev it works fine
 
     if (match) {
       const url = `https://do7go.com${match[1]}`;
@@ -157,12 +159,13 @@ async function getMaxStreamLink(link) {
 async function extractDirectLink(link) {
   //console.log('Extracting direct link for:', link);
   let url = null;
+  let headers = null;
   if (link.includes('supervideo')) {
     url = await getSuperVideoLink(link);
     return url ? { url, provider: 'supervideo' } : null;
   }else if (link.includes('mixdrop')) {
-    url = await getMixDropLink(link);
-    return url ? { url, provider: 'mixdrop' } : null;
+    ({ url, headers } = await getMixDropLink(link));
+    return { url, provider: 'mixdrop', headers };
   }else if (link.includes('dood')) {
     url = await getDoodStreamLink(link);
     return url ? { url, provider: 'dood ⭐' } : null;

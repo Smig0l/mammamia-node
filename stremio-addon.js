@@ -77,15 +77,13 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
           streams.push({
             title: `StreamingCommunity: ${type} [${provider}]`,
             url,
-            quality: 'Unknown',
-            isFree: true
+            quality: 'Unknown'
           });
         });
       }
     } catch (err) {
       console.error('StreamingCommunity error:', err.message);
     }
-
     // Try StreamingWatch
     try {
       const streamUrls = await streamingwatch(imdbId, showName, type, season, episode);
@@ -100,18 +98,25 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
     } catch (err) {
       console.error('StreamingWatch error:', err.message);
     }
-
     // Try CB01
     try {
       const streamUrls = await scrapeCb01(imdbId, showName, type, season, episode);
        if (streamUrls && Array.isArray(streamUrls.streams)) {
-        streamUrls.streams.forEach(({ url, provider }) => {
-          streams.push({
+        streamUrls.streams.forEach(({ url, provider, headers }) => {
+          const stream = {
             title: `CB01: ${type} [${provider}]`,
             url,
             quality: 'Unknown',
-            isFree: true
-          });
+          };
+          if (headers) { // If headers are provided, set them as behavior hints
+            stream.behaviorHints = {
+              notWebReady: true, // stream is not web-ready, so not playable in browser
+              proxyHeaders: {
+                request: headers,
+              },
+            };
+          }
+          streams.push(stream);
         });
       }
     } catch (err) {
@@ -121,12 +126,21 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
     try {
       const streamUrls = await scrapeGuardaHD(imdbId, showName, type, season, episode);
       if (streamUrls && Array.isArray(streamUrls.streams)) {
-        streamUrls.streams.forEach(({ url, provider }) => {
-          streams.push({
+        streamUrls.streams.forEach(({ url, provider, headers }) => {
+          const stream = {
             title: `GuardaHD: ${type} [${provider}]`,
             url,
-            quality: 'Unknown'
-          });
+            quality: 'Unknown',
+          };
+          if (headers) { // If headers are provided, set them as behavior hints
+            stream.behaviorHints = {
+              notWebReady: true, // stream is not web-ready, so not playable in browser
+              proxyHeaders: {
+                request: headers,
+              },
+            };
+          }
+          streams.push(stream);
         });
       }
     } catch (err) {
@@ -155,8 +169,7 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
           streams.push({
             title: `AnimeUnity: ${type} - ${dub} [${provider}]`,
             url,
-            quality: 'Unknown',
-            isFree: true
+            quality: 'Unknown'
           });
         });
       }
@@ -171,8 +184,7 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
           streams.push({
             title: `AnimeWorld: ${type} - ${dub} [${provider}]`,
             url,
-            quality: 'Unknown',
-            isFree: true
+            quality: 'Unknown'
           });
         });
       }
