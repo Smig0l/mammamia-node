@@ -217,7 +217,7 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
             }
         }
 
-        // Fallback: use all if still nothing //    FIXME: more precise filtering
+        // Fallback: use all if still nothing //    FIXME: more precise filtering, always return ep01
         const recordsToUse = filteredRecords.length ? filteredRecords : searchResult.records;
 
         // For each record, fetch the real stream URL from the player page

@@ -17,6 +17,7 @@
     "dotenv": "^16.5.0",
     "moviedb-promise": "^4.0.7",
     "open": "^10.1.2",
-    "stremio-addon-sdk": "^1.6.10"
+    "stremio-addon-sdk": "^1.6.10",
+    "unpacker": "^1.0.1"
   }
 }

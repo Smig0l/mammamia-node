@@ -1,4 +1,5 @@
 const axios = require('axios');
+const cheerio = require('cheerio');
 
 /**
  * Extract the final video link from SuperVideo.
@@ -10,7 +11,7 @@ async function getSuperVideoLink(link) {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
     };
 
-    const response = await axios.get(link, {
+    const response = await axios.get(link, { //FIXME: protected by Cloudflare, 403 error
       headers,
       maxRedirects: 10,
       timeout: 30000,
@@ -97,6 +98,41 @@ async function getMixDropLink(link) {
     }
 }
 
+async function getDroploadLink(link) {
+  try {
+    console.log('Fetching Dropload link:', link);
+    const headers = {
+      'Referer': link,
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+    };
+
+    const res = await axios.get(link, { headers });
+    const $ = cheerio.load(res.data); //FIXME: must use cheerio?
+
+    // Find the packed eval script
+    const packedScript = $('script').toArray()
+      .map(el => $(el).html())
+      .find(s => s && s.includes('eval(function(p,a,c,k,e,d)'));
+
+    if (!packedScript) throw new Error('Packed script not found');
+
+    //console.log('Packed Script:', packedScript);
+
+    const unpacker = require("unpacker"); //FIXME: really external libs?
+    const result = unpacker.unpack(packedScript);
+    //console.log(result);
+
+    const match = result.match(/sources\s*:\s*\[\s*\{\s*[^}]*?\bfile\s*:\s*"([^"]+)"/);
+    const fileUrl = match ? match[1] : 'File URL not found';
+
+    return fileUrl;
+
+  } catch (error) {
+    console.error('getDroploadLink error:', error.message);
+    return null;
+  }
+}
+
 async function getDoodStreamLink(link) {
   // Example link: https://dood.to/e/i85xl8us8nto
   try {
@@ -131,7 +167,7 @@ async function getDoodStreamLink(link) {
       if (rebobo.data && rebobo.data.length > 2) {
         const realTime = Math.floor(Date.now() / 1000).toString();
         const realUrl = `${rebobo.data}123456789${match[2]}${realTime}`;
-        return realUrl;
+        return realUrl; // FIXME: connection error
       }
     } else {
       console.error('Doodstream: No match found in the text.');
@@ -166,9 +202,12 @@ async function extractDirectLink(link) {
   }else if (link.includes('mixdrop')) {
     ({ url, headers } = await getMixDropLink(link));
     return { url, provider: 'mixdrop', headers };
+  }else if (link.includes('dropload')) {
+    url = await getDroploadLink(link);
+    return url ? { url, provider: 'dropload' } : null;
   }else if (link.includes('dood')) {
     url = await getDoodStreamLink(link);
-    return url ? { url, provider: 'dood ⭐' } : null;
+    return url ? { url, provider: 'dood' } : null;
   } else if (link.includes('maxstream')) {
     url = await getMaxStreamLink(link);
     return url ? { url, provider: 'maxstream' } : null;
