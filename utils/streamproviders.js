@@ -192,6 +192,19 @@ async function getMaxStreamLink(link) {
     return null;
 }
 
+async function getHdPlayerLink(link) {
+    try {
+        const response = await axios.get(link, { headers: { Referer: link, 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36', } });
+        
+        const match = response.data.match(/sources:\s*\[\s*\{\s*file\s*:\s*"([^"]+)"/);
+        if (match) return match[1];
+    } catch (error) {
+        console.error('Error in getHdPlayerLink:', error.message);
+    }
+    return null;
+}
+
+
 async function extractDirectLink(link) {
   //console.log('Extracting direct link for:', link);
   let url = null;
@@ -211,6 +224,9 @@ async function extractDirectLink(link) {
   } else if (link.includes('maxstream')) {
     url = await getMaxStreamLink(link);
     return url ? { url, provider: 'maxstream' } : null;
+  } else if (link.includes('hdplayer')) {
+    url = await getHdPlayerLink(link);
+    return url ? { url, provider: 'hdplayer' } : null;
   } else {
     console.error('Unsupported provider for link: ', link);
     return url ? { url, provider: 'unknown' } : null;

@@ -5,7 +5,7 @@ const { getShowNameFromCinemeta, getShowNameFromKitsu } = require('./utils/media
 
 const { lordchannel } = require('./lordchannel'); //FIXME:
 const { scrapeStreamingCommunity } =  require('./streamingcommunity');
-const { streamingwatch } = require('./streamingwatch'); //FIXME:
+const { scrapeStreamingWatch } = require('./streamingwatch');
 const { scrapeCb01 } = require('./cb01');
 const { scrapeGuardaHD } = require('./guardahd');
 const { filmpertutti } = require('./filmpertutti'); //TODO:
@@ -53,22 +53,6 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
 
     const streams = [];
   
-    /*
-    // Try LordChannel
-    try {
-      const streamUrls = await lordchannel(imdbId, showName, type, season, episode);
-      if (streamUrls && streamUrls.stream) {
-        streams.push({
-          title: `LordChannel: ${type} ${imdbId}`,
-          url: streamUrls.stream,
-          quality: streamUrls.quality || 'Unknown',
-          isFree: true
-        });
-      }
-    } catch (err) {
-      console.error('LordChannel error:', err.message);
-    }
-    */
     // Try StreamingCommunity
     try {
       const streamUrls = await scrapeStreamingCommunity(imdbId, showName, type, season, episode);
@@ -86,13 +70,14 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
     }
     // Try StreamingWatch
     try {
-      const streamUrls = await streamingwatch(imdbId, showName, type, season, episode);
-      if (streamUrls && streamUrls.stream) {
-        streams.push({
-          title: `StreamingWatch: ${type} [unknownprovider]`,
-          url: streamUrls.stream,
-          quality: 'Unknown',
-          isFree: true
+      const streamUrls = await scrapeStreamingWatch(imdbId, showName, type, season, episode);
+      if (streamUrls && Array.isArray(streamUrls.streams)) {
+        streamUrls.streams.forEach(({ url, provider }) => {
+          streams.push({
+            title: `StreamingWatch: ${type} [${provider}]`,
+            url,
+            quality: 'Unknown'
+          });
         });
       }
     } catch (err) {
