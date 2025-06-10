@@ -3,7 +3,7 @@ const cheerio = require('cheerio');
 require('dotenv').config();
 const { extractDirectLink, bypassProtectedLink } = require('./utils/streamproviders');
 
-const STREAM_SITE = process.env.CB_DOMAIN || 'https://cb01net.download' || 'https://cb01.uno';
+const STREAM_SITE = process.env.CB_DOMAIN;
 
 /**
  * Extract the real movie URL from CB01.

@@ -100,7 +100,7 @@ async function getMixDropLink(link) {
 
 async function getDroploadLink(link) {
   try {
-    console.log('Fetching Dropload link:', link);
+    //console.log('Fetching Dropload link:', link);
     const headers = {
       'Referer': link,
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',

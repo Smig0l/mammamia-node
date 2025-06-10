@@ -3,7 +3,7 @@ const cheerio = require('cheerio');
 const { extractDirectLink } = require('./utils/streamproviders');
 require('dotenv').config();
 
-const STREAM_SITE = process.env.TF_DOMAIN || 'https://tantifilm.kaufen';
+const STREAM_SITE = process.env.TF_DOMAIN;
 
 const headers = {
     'Referer': STREAM_SITE,

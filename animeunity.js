@@ -2,7 +2,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 require('dotenv').config();
 
-const STREAM_SITE = process.env.AU_DOMAIN || 'https://www.animeunity.so';
+const STREAM_SITE = process.env.AU_DOMAIN;
 
 async function search(showName) {
     // Step 1: Get CSRF token and session cookie

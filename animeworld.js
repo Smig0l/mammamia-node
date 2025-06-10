@@ -2,7 +2,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 require('dotenv').config();
 
-const STREAM_SITE = process.env.AW_DOMAIN || 'https://www.animeworld.ac';
+const STREAM_SITE = process.env.AW_DOMAIN;
 
 async function parsePlayerPage(anime_url, type, season, episode) {
     try {

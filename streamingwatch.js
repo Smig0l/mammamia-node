@@ -3,7 +3,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const { extractDirectLink } = require('./utils/streamproviders');
 
-const STREAM_SITE = process.env.SW_DOMAIN || "https://www.streamingwatch.org"
+const STREAM_SITE = process.env.SW_DOMAIN;
 
 const headers = {
     'Referer': STREAM_SITE,

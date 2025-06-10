@@ -3,15 +3,15 @@ const axios = require('axios');
 const { addonBuilder, serveHTTP } = require('stremio-addon-sdk');
 const { getShowNameFromCinemeta, getShowNameFromKitsu } = require('./utils/mediainfo');
 
-const { lordchannel } = require('./lordchannel'); //FIXME:
 const { scrapeStreamingCommunity } =  require('./streamingcommunity');
 const { scrapeStreamingWatch } = require('./streamingwatch');
 const { scrapeCb01 } = require('./cb01');
 const { scrapeGuardaHD } = require('./guardahd');
-const { filmpertutti } = require('./filmpertutti'); //TODO:
 const { scrapeTantiFilm } = require('./tantifilm'); //FIXME: protected by Cloudflare
 const { scrapeAnimeWorld } = require('./animeworld');
 const { scrapeAnimeUnity } = require('./animeunity');
+// TODO: altadefinizione
+// TODO: guardaserie
 
 
 const builder = new addonBuilder({
@@ -100,6 +100,7 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
                 request: headers,
               },
             };
+            stream.title += " (not playable in browser)"
           }
           streams.push(stream);
         });
@@ -124,6 +125,7 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
                 request: headers,
               },
             };
+            stream.title += " (not playable in browser)"
           }
           streams.push(stream);
         });
@@ -146,35 +148,37 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
     } catch (err) {
       console.error('TantiFilm error:', err.message);
     }
-    // Try AnimeUnity
-    try {
-      const streamUrls = await scrapeAnimeUnity(kitsuId, showName.en, type, season, episode);
-      if (streamUrls && Array.isArray(streamUrls.streams)) {
-        streamUrls.streams.forEach(({ url, provider, dub }) => {
-          streams.push({
-            title: `AnimeUnity: ${type} - ${dub} [${provider}]`,
-            url,
-            quality: 'Unknown'
+    if (id.startsWith('kitsu')) {
+      // Try AnimeUnity
+      try {
+        const streamUrls = await scrapeAnimeUnity(kitsuId, showName.en, type, season, episode);
+        if (streamUrls && Array.isArray(streamUrls.streams)) {
+          streamUrls.streams.forEach(({ url, provider, dub }) => {
+            streams.push({
+              title: `AnimeUnity: ${type} - ${dub} [${provider}]`,
+              url,
+              quality: 'Unknown'
+            });
           });
-        });
+        }
+      } catch (err) {
+        console.error('AnimeUnity error:', err.message);
       }
-    } catch (err) {
-      console.error('AnimeUnity error:', err.message);
-    }
-    // Try AnimeWorld
-    try {
-      const streamUrls = await scrapeAnimeWorld(kitsuId, showName.en_jp, type, season, episode);
-      if (streamUrls && Array.isArray(streamUrls.streams)) {
-        streamUrls.streams.forEach(({ url, provider, dub }) => {
-          streams.push({
-            title: `AnimeWorld: ${type} - ${dub} [${provider}]`,
-            url,
-            quality: 'Unknown'
+      // Try AnimeWorld
+      try {
+        const streamUrls = await scrapeAnimeWorld(kitsuId, showName.en_jp, type, season, episode);
+        if (streamUrls && Array.isArray(streamUrls.streams)) {
+          streamUrls.streams.forEach(({ url, provider, dub }) => {
+            streams.push({
+              title: `AnimeWorld: ${type} - ${dub} [${provider}]`,
+              url,
+              quality: 'Unknown'
+            });
           });
-        });
+        }
+      } catch (err) {
+        console.error('AnimeWorld error:', err.message);
       }
-    } catch (err) {
-      console.error('AnimeWorld error:', err.message);
     }
   
     return { streams };

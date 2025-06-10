@@ -3,7 +3,7 @@ const cheerio = require('cheerio');
 require('dotenv').config();
 const { extractDirectLink } = require('./utils/streamproviders');
 
-const STREAM_SITE = process.env.GHD_DOMAIN || 'https://guardahd.stream' || 'https://mostraguarda.stream';
+const STREAM_SITE = process.env.GHD_DOMAIN;
 
 /**
  * Search for the video link on GuardaHD.
