@@ -77,7 +77,7 @@ async function search(showname) {
 
 async function scrapeTantiFilm(imdbId, showName, type, season = null, episode = null) {
 
-    const results = await search(showName);  //FIXME: some showName may not be found because of language differences and search engine
+    const results = await search(imdbId);  //FIXME: some showName may not be found because of language differences and search engine
     if (!results) {
         console.error(`❌ TantiFilm: No results found for "${showName}"`);
         return null;
@@ -108,6 +108,6 @@ module.exports = { scrapeTantiFilm };
 /*
 (async () => {
     //const movie = await scrapeTantiFilm('tt28309594', 'Nonnas', 'movie');
-    const series = await scrapeTantiFilm('tt31510819', 'MobLand', 'series', 1, 1);
+    //const series = await scrapeTantiFilm('tt31510819', 'MobLand', 'series', 1, 1);
 })();
 */

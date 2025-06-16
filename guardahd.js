@@ -66,8 +66,20 @@ async function scrapeGuardaHD(imdbId, showName, type, season, episode) {
     }else{
       //console.log('✅ GuardaHD Player Links:', playerLinks);
       for (const link of playerLinks) {
-        const streamObj = await extractDirectLink(link);
-        if (streamObj) streams.push(streamObj);
+        try {
+          const streamObj = await extractDirectLink(link);
+          if (streamObj) streams.push(streamObj);
+        } catch (error) {
+          console.error(`⚠️ Failed to extract stream from ${link}:`, error.message);
+          // Continue with next link instead of crashing
+          continue;
+        }
+      }
+      
+      // Only return if we found at least one valid stream
+      if (streams.length === 0) {
+        console.error('❌ GuardaHD: No valid streams found');
+        return null;
       }
     }
     
