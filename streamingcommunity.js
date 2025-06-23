@@ -169,7 +169,7 @@ async function scrapeStreamingCommunity(imdbId, showName, type, season = null, e
     } else {
       //console.log('✅ StreamingCommunity Player Links:', playerLinks);
       for (const link of playerLinks) {
-          const streamObj = { url: link, provider: 'vixcloud' };
+          const streamObj = { url: link, provider: 'vixcloud', headers: { 'User-Agent': USER_AGENT , 'Accept': 'application/vnd.apple.mpegurl' }   };
           if (streamObj) streams.push(streamObj);
         
       }

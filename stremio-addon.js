@@ -10,8 +10,6 @@ const { scrapeGuardaHD } = require('./guardahd');
 const { scrapeTantiFilm } = require('./tantifilm'); //FIXME: protected by Cloudflare
 const { scrapeAnimeWorld } = require('./animeworld');
 const { scrapeAnimeUnity } = require('./animeunity');
-// TODO: altadefinizione
-// TODO: guardaserie
 
 
 const builder = new addonBuilder({
@@ -57,12 +55,22 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
     try {
       const streamUrls = await scrapeStreamingCommunity(imdbId, showName, type, season, episode);
        if (streamUrls && Array.isArray(streamUrls.streams)) {
-        streamUrls.streams.forEach(({ url, provider }) => {
-          streams.push({
+        streamUrls.streams.forEach(({ url, provider, headers }) => {
+          const stream = {
             title: `StreamingCommunity: ${type} [${provider}]`,
             url,
-            quality: 'Unknown'
-          });
+            quality: 'Unknown',
+          };
+          if (headers) { // If headers are provided, set them as behavior hints
+            stream.behaviorHints = {
+              notWebReady: true, // stream is not web-ready, so not playable in browser
+              proxyHeaders: {
+                request: headers,
+              },
+            };
+            stream.title += " (not playable in browser)"
+          }
+          streams.push(stream);
         });
       }
     } catch (err) {
