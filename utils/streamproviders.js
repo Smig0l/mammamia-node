@@ -91,7 +91,11 @@ async function getMixDropLink(link) {
       }
   
       //console.log(finalUrl);    
-      return { url: finalUrl, headers };
+      const checkres = await axios.head(finalUrl, { headers });
+      //console.log('Mixdrop Link Response:', checkres.status);
+      if (checkres.status === 200) {
+        return { url: finalUrl, headers };
+      }
     } catch (error) {
       console.error('Error in getMixDropLink:', error.message);
       return null;
@@ -125,7 +129,11 @@ async function getDroploadLink(link) {
     const match = result.match(/sources\s*:\s*\[\s*\{\s*[^}]*?\bfile\s*:\s*"([^"]+)"/);
     const fileUrl = match ? match[1] : 'File URL not found';
 
-    return fileUrl;
+    const checkres = await axios.head(fileUrl, { headers });
+      //console.log('Dropload Link Response:', checkres.status);
+      if (checkres.status === 200) {
+        return { url: fileUrl };
+      }
 
   } catch (error) {
     console.error('getDroploadLink error:', error.message);
@@ -136,13 +144,13 @@ async function getDroploadLink(link) {
 async function getDoodStreamLink(link) {
   // Example link: https://dood.to/e/i85xl8us8nto
   try {
-    // HEAD request to resolve any redirects (optional, can be skipped if not needed)
-    link = link.replace(/^https:\/\/dood\.to/, 'https://do7go.com');
+
+    link = link.replace(/^https:\/\/dood\.to/, 'https://vide0.net');
     
     // GET the protect link page
     const headers = {
       'Range': 'bytes=0-',
-      'Referer': 'https://do7go.com/',
+      'Referer': 'https://vide0.net/',
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
     };
 
@@ -158,16 +166,20 @@ async function getDoodStreamLink(link) {
     // Regex to extract the pass_md5 and token/expiry
     const pattern = /(\/pass_md5\/.*?)'.*(\?token=.*?expiry=)/s;
     const match = response.data.match(pattern);
-    //console.log(response.data); //FIXME: in prod i get no match, but in dev it works fine
+    //console.log(response.data); //FIXME:
 
     if (match) {
-      const url = `https://do7go.com${match[1]}`;
+      const url = `https://vide0.net${match[1]}`;
       // GET the pass_md5 URL to get the real URL part
       const rebobo = await axios.get(url, { headers, maxRedirects: 10, timeout: 30000 });
       if (rebobo.data && rebobo.data.length > 2) {
         const realTime = Math.floor(Date.now() / 1000).toString();
         const realUrl = `${rebobo.data}123456789${match[2]}${realTime}`;
-        return realUrl; // FIXME: connection error
+        const checkres = await axios.head(realUrl, {});
+          //console.log('Dood Link Response:', checkres.status);
+          if (checkres.status === 200) {
+            return realUrl;
+          }
       }
     } else {
       console.error('Doodstream: No match found in the text.');
@@ -197,7 +209,13 @@ async function getHdPlayerLink(link) {
         const response = await axios.get(link, { headers: { Referer: link, 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36', } });
         
         const match = response.data.match(/sources:\s*\[\s*\{\s*file\s*:\s*"([^"]+)"/);
-        if (match) return match[1];
+        if (match) {
+          const checkres = await axios.head(match[1], {});
+          //console.log('HD Player Link Response:', checkres.status);
+          if (checkres.status === 200) {
+            return match[1];
+          }
+        }
     } catch (error) {
         console.error('Error in getHdPlayerLink:', error.message);
     }

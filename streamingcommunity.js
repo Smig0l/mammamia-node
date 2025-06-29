@@ -125,8 +125,13 @@ async function parsePlayerPage(tid, version, episodeId = null) {
         stream += '&lang=it';
       };
 
-      playerLinks.push(stream);
-      return playerLinks;
+      const checkres = await axios.head(stream, { headers });
+      //console.log('Vixcloud Player Link Response:', checkres.status);
+      if (checkres.status === 200) {
+        playerLinks.push(stream);
+        return playerLinks;
+      }
+
     }
 
     console.error('❌ StreamingCommunity: Could not extract stream info');
