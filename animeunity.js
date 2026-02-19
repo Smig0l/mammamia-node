@@ -166,29 +166,36 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
 
             for (const record of filteredRecords) {
                 //console.log(`record: ${record.title_eng}`);
-                const infoUrl = `${STREAM_SITE}/info_api/${record.id}/${episode}?start_range=361&end_range=480`; //TODO: if we have < 120 episodes? or more seasons?
-                const infoResp = await axios.get(infoUrl, {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0',
-                        'Cookie': sessionCookie
-                    }
-                });
-                //console.log(`Info API response for ${record.title_eng} episode ${episode}:`, infoResp.data);
-                let episodeId = infoResp.data.episodes.find(ep => ep.number === String(episode))?.id;
-                let episodeFileName = infoResp.data.episodes.find(ep => ep.number === String(episode))?.file_name;
-                //console.log(`Found episode ID for ${record.title_eng} episode ${episode}:`, episodeId);
-                if (episodeId) {
-                    const animePageUrl = `${STREAM_SITE}/anime/${record.id}-${record.slug}/${episodeId}`;
-                    const streamUrl = await extractStreamUrl(animePageUrl, sessionCookie);
-                    if (streamUrl) {
-                        streams.push({
-                            url: streamUrl,
-                            provider: 'vixcloud',
-                            title: episodeFileName,
-                            dub: record.dub === 1 ? 'ITA' : 'SUB'
-                        });
-                    }
+                let episodeId = record.id; // For anime with less than 120 episodes, the episode ID is the same as the anime ID
+                let episodeFileName = null;
+                if (record.real_episodes_count > 120 || record.episodes_count > 120){
+                    const block = Math.floor((episode - 1) / 120);
+                    const start_range = block * 120 + 1;
+                    const end_range = (block + 1) * 120;
+                    const infoUrl = `${STREAM_SITE}/info_api/${record.id}/${episode}?start_range=${start_range}&end_range=${end_range}`;
+                    const infoResp = await axios.get(infoUrl, {
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0',
+                            'Cookie': sessionCookie
+                        }
+                    });
+                    //console.log(`Info API response for ${record.title_eng} episode ${episode}:`, infoResp.data);
+                    episodeId = infoResp.data.episodes.find(ep => ep.number === String(episode))?.id;
+                    episodeFileName = infoResp.data.episodes.find(ep => ep.number === String(episode))?.file_name;
+                    //console.log(`Found episode ID for ${record.title_eng} episode ${episode}:`, episodeId);
                 }
+                
+                const animePageUrl = `${STREAM_SITE}/anime/${record.id}-${record.slug}/${episodeId}`;
+                const streamUrl = await extractStreamUrl(animePageUrl, sessionCookie);
+                if (streamUrl) {
+                    streams.push({
+                        url: streamUrl,
+                        provider: 'vixcloud',
+                        title: episodeFileName,
+                        dub: record.dub === 1 ? 'ITA' : 'SUB'
+                    });
+                }
+                
                     
             }
         }
