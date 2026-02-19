@@ -166,24 +166,30 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
 
             for (const record of filteredRecords) {
                 //console.log(`record: ${record.title_eng}`);
-                let episodeId = record.id; // For anime with less than 120 episodes, the episode ID is the same as the anime ID
+                let episodeId = null;
                 let episodeFileName = null;
+                let block = null;
+                let start_range = null;
+                let end_range = null;
                 if (record.real_episodes_count > 120 || record.episodes_count > 120){
-                    const block = Math.floor((episode - 1) / 120);
-                    const start_range = block * 120 + 1;
-                    const end_range = (block + 1) * 120;
-                    const infoUrl = `${STREAM_SITE}/info_api/${record.id}/${episode}?start_range=${start_range}&end_range=${end_range}`;
-                    const infoResp = await axios.get(infoUrl, {
-                        headers: {
-                            'User-Agent': 'Mozilla/5.0',
-                            'Cookie': sessionCookie
-                        }
-                    });
-                    //console.log(`Info API response for ${record.title_eng} episode ${episode}:`, infoResp.data);
-                    episodeId = infoResp.data.episodes.find(ep => ep.number === String(episode))?.id;
-                    episodeFileName = infoResp.data.episodes.find(ep => ep.number === String(episode))?.file_name;
-                    //console.log(`Found episode ID for ${record.title_eng} episode ${episode}:`, episodeId);
+                    block = Math.floor((episode - 1) / 120);
+                    start_range = block * 120 + 1;
+                    end_range = (block + 1) * 120;
+                } else {
+                    start_range = 1;
+                    end_range = record.real_episodes_count || record.episodes_count;
                 }
+                const infoUrl = `${STREAM_SITE}/info_api/${record.id}/${episode}?start_range=${start_range}&end_range=${end_range}`;
+                const infoResp = await axios.get(infoUrl, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0',
+                        'Cookie': sessionCookie
+                    }
+                });
+                //console.log(`Info API response for ${record.title_eng} episode ${episode}:`, infoResp.data);
+                episodeId = infoResp.data.episodes.find(ep => ep.number === String(episode))?.id;
+                episodeFileName = infoResp.data.episodes.find(ep => ep.number === String(episode))?.file_name;
+                //console.log(`Found episode ID for ${record.title_eng} episode ${episode}:`, episodeId);
                 
                 const animePageUrl = `${STREAM_SITE}/anime/${record.id}-${record.slug}/${episodeId}`;
                 const streamUrl = await extractStreamUrl(animePageUrl, sessionCookie);
@@ -212,7 +218,7 @@ module.exports = { scrapeAnimeUnity };
 
 /*
 (async () => {
-    const serie = await scrapeAnimeUnity("12", "One Piece", "series", 1, 400);
+    const serie = await scrapeAnimeUnity("48108", "Dragon Ball Daima", "series", 1, 2);
     console.log(serie);
 })();
 */
