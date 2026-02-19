@@ -1,11 +1,11 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 require('dotenv').config();
+const { getMappingsFromKitsu } = require('./utils/mediainfo');
 
 const STREAM_SITE = process.env.AU_DOMAIN;
 
 async function search(showName) {
-    // Step 1: Get CSRF token and session cookie
     const mainPage = await axios.get(STREAM_SITE, {
         headers: {
             'User-Agent': 'Mozilla/5.0'
@@ -16,7 +16,6 @@ async function search(showName) {
     const cookies = mainPage.headers['set-cookie'] || [];
     const sessionCookie = cookies.map(c => c.split(';')[0]).join('; ');
 
-    // Step 2: Use them in the POST request
     const url = `${STREAM_SITE}/livesearch`;
     const headers = { 
         'User-Agent': 'Mozilla/5.0',
@@ -30,6 +29,93 @@ async function search(showName) {
     };   
     const response = await axios.post(url, { title: showName }, { headers });
     //console.log(response.data);
+    /*INFO: returns an array json with dub = 0 for sub and dub = 1 for dub, also they share the same anilist_id -> response:
+    {
+    "records": [
+        {
+            "id": 12,
+            "user_id": 2,
+            "title": null,
+            "imageurl": "https:\/\/cdn.myanimelist.net\/images\/anime\/1810\/139965.jpg",
+            "plot": "Monkey D. Rufy \u00e8 un giovane pirata sognatore che da piccolo ha inavvertitamente mangiato il frutto del diavolo Gom Gom che lo rende \"elastico\", permettendogli di allungarsi e deformarsi a piacimento, a scapito, per\u00f2, della capacit\u00e0 di nuotare. L'obiettivo che lo ha spinto in mare \u00e8 quello ambizioso di diventare il Re dei pirati. Dovr\u00e0, dunque, ritrovare il leggendario \"One Piece\", il magnifico tesoro lasciato dal mitico pirata Gol D. Roger probabilmente sull'isola di Raftel, alla fine della Rotta Maggiore, mai ritrovato e sogno di ogni pirata.Nella sua avventura, Rufy riunir\u00e0 intorno a lui una ciurma e si trover\u00e0 in mezzo a situazioni bizzarre e stravaganti, tanto almeno quanto lo sono i personaggi, amici o nemici, presenti nell'universo che lo circonda, che raggiungono spesso livelli assurdi e grotteschi e che donano all'opera un'atmosfera surreale e divertente.",
+            "date": "1999",
+            "episodes_count": 0,
+            "episodes_length": 24,
+            "author": " ",
+            "created_at": "2020-07-04 02:46:59",
+            "status": "In Corso",
+            "imageurl_cover": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/anime\/banner\/21-wf37VakJmZqs.jpg",
+            "type": "TV",
+            "slug": "one-piece",
+            "title_eng": "One Piece",
+            "day": "Indeterminato",
+            "favorites": 8128,
+            "score": "9.41",
+            "visite": 92985893,
+            "studio": "Toei Animation",
+            "dub": 0,
+            "always_home": 1,
+            "members": 23234,
+            "cover": "https:\/\/img.animeworld.so\/copertine\/qzG-LE.jpg",
+            "anilist_id": 21,
+            "season": "Autunno",
+            "title_it": null,
+            "mal_id": 21,
+            "crunchy_id": null,
+            "netflix_id": null,
+            "prime_id": "0QN6GA8OASZY2UYU67FDBYSVNX",
+            "disney_id": null,
+            "real_episodes_count": 1155
+        },
+        {
+            "id": 2998,
+            "user_id": 2,
+            "title": null,
+            "imageurl": "https:\/\/img.animeworld.so\/locandine\/d5nahE.png",
+            "plot": "Monkey D. Rufy \u00e8 un giovane pirata sognatore che da piccolo ha inavvertitamente mangiato il frutto del diavolo Gom Gom che lo rende \"elastico\", permettendogli di allungarsi e deformarsi a piacimento, a scapito, per\u00f2, della capacit\u00e0  di nuotare. L'obiettivo che lo ha spinto in mare \u00e8 quello ambizioso di diventare il Re dei pirati. Dovr\u00e0 , dunque, ritrovare il leggendario \"One Piece\", il magnifico tesoro lasciato dal mitico pirata Gol D. Roger probabilmente sull'isola di Raftel, alla fine della Rotta Maggiore, mai ritrovato e sogno di ogni pirata.Nella sua avventura, Rufy riunir\u00e0  intorno a lui una ciurma e si trover\u00e0  in mezzo a situazioni bizzarre e stravaganti, tanto almeno quanto lo sono i personaggi, amici o nemici, presenti nell'universo che lo circonda, che raggiungono spesso livelli assurdi e grotteschi e che donano all'opera un'atmosfera surreale e divertente.",
+            "date": "1999",
+            "episodes_count": 0,
+            "episodes_length": 24,
+            "author": " ",
+            "created_at": "2021-03-27 17:54:21",
+            "status": "In Corso",
+            "imageurl_cover": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/anime\/banner\/21-wf37VakJmZqs.jpg",
+            "type": "TV",
+            "slug": "one-piece-ita",
+            "title_eng": "One Piece (ITA)",
+            "day": "Indeterminato",
+            "favorites": 3444,
+            "score": "9.23",
+            "visite": 65365961,
+            "studio": "Toei Animation",
+            "dub": 1,
+            "always_home": 0,
+            "members": 9812,
+            "cover": "https:\/\/img.animeworld.so\/copertine\/d5nah.png",
+            "anilist_id": 21,
+            "season": "Autunno",
+            "title_it": null,
+            "mal_id": 21,
+            "crunchy_id": null,
+            "netflix_id": null,
+            "prime_id": "0N07MEA8EDPFAETQQTQ3NRKMS3",
+            "disney_id": null,
+            "real_episodes_count": 889
+        }
+    ]
+    }
+
+    the interesting field is id that we can use to get the links from the api endpoint /info_api/${id} -> /info_api/2998/${episode_number}?start_range=1&end_range=120 divides in 120 range max -> response:
+        {"episodes_count":889,"current_episode":401,"episodes":
+          [
+          {"id":50935,"anime_id":2998,"user_id":2,"number":"361","created_at":"2021-03-27 20:26:21","link":"OnePiece_Ep_361_ITA.mp4","visite":82104,"hidden":0,"public":1,"scws_id":331587,"file_name":"OnePiece_Ep_361_ITA.mp4","tg_post":0},
+          {"id":50936,"anime_id":2998,"user_id":2,"number":"362","created_at":"2021-03-27 20:26:24","link":"OnePiece_Ep_362_ITA.mp4","visite":68903,"hidden":0,"public":1,"scws_id":331591,"file_name":"OnePiece_Ep_362_ITA.mp4","tg_post":0}
+          ]
+        }
+
+    so then we can use the id field to get the player page /anime/${id}-${slug}/${episode-id}
+    */
+
     return response.data;
 }
 
@@ -58,99 +144,6 @@ async function extractStreamUrl(animePageUrl, sessionCookie) {
     return mp4;
 }
 
-async function getAniListInfo(anilistId) {
-    const query = `
-        query ($id: Int) {
-            Media(id: $id, type: ANIME) {
-                id
-                title {
-                    romaji
-                    english
-                    native
-                }
-                startDate { year }
-                season
-                seasonYear
-                episodes
-                relations {
-                    edges {
-                        node {
-                            id
-                            title { romaji english native }
-                            startDate { year }
-                            season
-                            seasonYear
-                            episodes
-                        }
-                        relationType
-                    }
-                }
-            }
-        }
-    `;
-    const variables = { id: parseInt(anilistId) };
-    const response = await axios.post('https://graphql.anilist.co', {
-        query,
-        variables
-    }, {
-        headers: { 'Content-Type': 'application/json' }
-    });
-    const media = response.data.data.Media;
-    // You can log media here for debugging
-    //console.log(media);
-    return {
-        id: media.id,
-        title: media.title.english || media.title.romaji || media.title.native,
-        year: media.startDate.year,
-        season: media.season,
-        seasonYear: media.seasonYear,
-        episodes: media.episodes,
-        relations: media.relations ? media.relations.edges.map(e => ({
-            id: e.node.id,
-            title: e.node.title.english || e.node.title.romaji || e.node.title.native,
-            year: e.node.startDate.year,
-            season: e.node.season,
-            seasonYear: e.node.seasonYear,
-            episodes: e.node.episodes,
-            relationType: e.relationType
-        })) : []
-    };
-}
-
-// Helper: Recursively collect all seasons/arcs in order from AniList relations
-function collectSeasons(mainInfo) {
-    // Start with the main entry
-    let entries = [{
-        id: mainInfo.id,
-        title: mainInfo.title,
-        year: mainInfo.year,
-        season: mainInfo.season,
-        seasonYear: mainInfo.seasonYear,
-        episodes: mainInfo.episodes
-    }];
-    // Find sequels/prequels in relations
-    if (mainInfo.relations && Array.isArray(mainInfo.relations)) {
-        // Only keep direct sequels/prequels
-        let sequels = mainInfo.relations.filter(r =>
-            r.relationType === "SEQUEL" || r.relationType === "PREQUEL"
-        );
-        // Sort by year/seasonYear
-        sequels = sequels.sort((a, b) => {
-            if (a.seasonYear !== b.seasonYear) return a.seasonYear - b.seasonYear;
-            if (a.season && b.season) return a.season.localeCompare(b.season);
-            return 0;
-        });
-        entries = entries.concat(sequels);
-    }
-    // Remove duplicates by id
-    const seen = new Set();
-    return entries.filter(e => {
-        if (seen.has(e.id)) return false;
-        seen.add(e.id);
-        return true;
-    });
-}
-
 async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
     try {
 
@@ -162,77 +155,41 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
         const sessionCookie = cookies.map(c => c.split(';')[0]).join('; ');
 
         const searchResult = await search(showName);
-
-        if (!searchResult || !Array.isArray(searchResult.records)) { //FIXME: better search results
-            return null;
-        }
-
+        
+        const anilistId = await getMappingsFromKitsu(kitsuId);
+        
         let filteredRecords = [];
-        if (type != "movie" && season) {
-            // Find the AniList ID for the requested TMDb season
-            let wantedAniListId = null;
-            for (const record of searchResult.records) {
-                if (!record.anilist_id) continue;
-                try {
-                    const aniInfo = await getAniListInfo(record.anilist_id);
-                    const allSeasons = collectSeasons(aniInfo);
-                    const wanted = allSeasons[parseInt(season) - 1];
-                    if (wanted) {
-                        wantedAniListId = wanted.id;
-                        break;
+        let streams = [];
+        if (type === "series") {
+            filteredRecords = searchResult.records.filter(record => record.anilist_id == anilistId.anilistId);
+            //console.log(`Found ${filteredRecords.length} matching records for Anilist ID ${anilistId.anilistId}`);
+
+            for (const record of filteredRecords) {
+                //console.log(`record: ${record.title_eng}`);
+                const infoUrl = `${STREAM_SITE}/info_api/${record.id}/${episode}?start_range=361&end_range=480`; //TODO: if we have < 120 episodes? or more seasons?
+                const infoResp = await axios.get(infoUrl, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0',
+                        'Cookie': sessionCookie
                     }
-                } catch (e) {}
-            }
-            // Only include records matching the wanted AniList ID
-            if (wantedAniListId) {
-                filteredRecords = searchResult.records.filter(
-                    r => r.anilist_id && parseInt(r.anilist_id) === wantedAniListId
-                );
-            }
-        }
-
-        // Fallback: match by seasonYear
-        if (!filteredRecords.length && season) {
-            for (const record of searchResult.records) {
-                if (!record.anilist_id) continue;
-                try {
-                    const aniInfo = await getAniListInfo(record.anilist_id);
-                    if (aniInfo.seasonYear && tmdbYear && aniInfo.seasonYear.toString() === tmdbYear.toString()) {
-                        filteredRecords.push(record);
-                    }
-                } catch (e) {}
-            }
-        }
-
-        // Fallback: match by year (movie or series)
-        if (!filteredRecords.length) {
-            for (const record of searchResult.records) {
-                if (!record.anilist_id) continue;
-                try {
-                    const aniInfo = await getAniListInfo(record.anilist_id);
-                    if (aniInfo.year && tmdbYear && aniInfo.year.toString() === tmdbYear.toString()) {
-                        filteredRecords.push(record);
-                    }
-                } catch (e) {}
-            }
-        }
-
-        // Fallback: use all if still nothing //    FIXME: more precise filtering, always return ep01
-        const recordsToUse = filteredRecords.length ? filteredRecords : searchResult.records;
-
-        // For each record, fetch the real stream URL from the player page
-        const streams = [];
-        for (const record of recordsToUse) {
-            const animePageUrl = `${STREAM_SITE}/anime/${record.id}-${record.slug}`;
-            const streamUrl = await extractStreamUrl(animePageUrl, sessionCookie);
-            if (streamUrl) {
-                streams.push({
-                    url: streamUrl,
-                    provider: 'vixcloud',
-                    title: record.title,
-                    year: record.date,
-                    dub: record.dub === 1 ? 'ITA' : 'SUB'
                 });
+                //console.log(`Info API response for ${record.title_eng} episode ${episode}:`, infoResp.data);
+                let episodeId = infoResp.data.episodes.find(ep => ep.number === String(episode))?.id;
+                let episodeFileName = infoResp.data.episodes.find(ep => ep.number === String(episode))?.file_name;
+                //console.log(`Found episode ID for ${record.title_eng} episode ${episode}:`, episodeId);
+                if (episodeId) {
+                    const animePageUrl = `${STREAM_SITE}/anime/${record.id}-${record.slug}/${episodeId}`;
+                    const streamUrl = await extractStreamUrl(animePageUrl, sessionCookie);
+                    if (streamUrl) {
+                        streams.push({
+                            url: streamUrl,
+                            provider: 'vixcloud',
+                            title: episodeFileName,
+                            dub: record.dub === 1 ? 'ITA' : 'SUB'
+                        });
+                    }
+                }
+                    
             }
         }
 
@@ -248,7 +205,7 @@ module.exports = { scrapeAnimeUnity };
 
 /*
 (async () => {
-    const serie = await scrapeAnimeUnity("7442", "Attack on Titan", "series", 1, 1);
-
+    const serie = await scrapeAnimeUnity("12", "One Piece", "series", 1, 400);
+    console.log(serie);
 })();
 */
