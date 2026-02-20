@@ -52,6 +52,7 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
         return { streams: [] };
       }
     
+      if (id.startsWith('tt')) {
       // Try StreamingCommunity
       try {
         const streamUrls = await scrapeStreamingCommunity(imdbId, showName, type, season, episode);
@@ -157,14 +158,14 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
       } catch (err) {
         console.error('TantiFilm error:', err.message);
       }
-      if (id.startsWith('kitsu')) {
+      } else if (id.startsWith('kitsu')) {
         // Try AnimeUnity
         try {
           const streamUrls = await scrapeAnimeUnity(kitsuId, showName.en, type, season, episode);
           if (streamUrls && Array.isArray(streamUrls.streams)) {
-            streamUrls.streams.forEach(({ url, provider, dub }) => {
+            streamUrls.streams.forEach(({ url, provider, dub, filename }) => {
               streams.push({
-                title: `AnimeUnity: ${type} - ${dub} [${provider}]`,
+                title: `AnimeUnity: ${dub} [${provider}] - ${filename}`,
                 url,
                 quality: 'Unknown'
               });
