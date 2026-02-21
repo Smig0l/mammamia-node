@@ -90,6 +90,7 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
             'User-Agent': 'Mozilla/5.0'
         }
         });
+        console.log(`Accessed ${STREAM_SITE} main page, status: ${mainPage.status}`);
         if (mainPage.status == 403) { //TODO: change 403 in prod
             console.error(`Failed to access ${STREAM_SITE}. Block detected. Attempting to use proxies...`);
             USE_PROXY = true;
