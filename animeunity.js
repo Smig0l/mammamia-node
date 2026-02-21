@@ -81,22 +81,13 @@ async function extractStreamUrl(animePageUrl, sessionCookie) {
     return results;
 }
 
-async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
-    
-    let mainPage;
-    
-    mainPage = await axios.get(STREAM_SITE, {
-        headers: {
-            'User-Agent': 'Mozilla/5.0'
-        }
-    });
-    console.log(`Accessed ${STREAM_SITE} main page, status: ${mainPage.status}`);
+async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) { 
+    try {     
         
-    try {
-        
-        if (mainPage.status == 403) {
-            console.error(`Failed to access ${STREAM_SITE}. Block detected. Attempting to use proxies...`);
-            USE_PROXY = true;
+        USE_PROXY = true; //FIXME: insert this in .env config
+        console.log(`${STREAM_SITE} ${USE_PROXY ? 'Using' : 'Not using'} proxies.`);
+
+        if (USE_PROXY) {
             let proxies = await fetchProxies();
             if (proxies.length === 0) {
                     proxies = await fetchProxies();
@@ -106,17 +97,16 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
                 }
                 
             const proxy = proxies[0]; // Use the most recently checked working proxy //FIXME: implement retry with multiple proxies if the first one fails
-            console.log(`Using proxy: ${proxy.address}:${proxy.port}`);
+            //console.log(`Using proxy: ${proxy.address}:${proxy.port}`);
             httpsAgent = new HttpsProxyAgent({host: proxy.address, port: proxy.port });
-
-            mainPage = await axios.get(STREAM_SITE, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0'
-                },
-                httpsAgent
-            });
-            
         }
+
+        mainPage = await axios.get(STREAM_SITE, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0'
+            },
+            httpsAgent: USE_PROXY ? httpsAgent : undefined
+        });             
 
         const $ = cheerio.load(mainPage.data);
         const csrfToken = $('meta[name="csrf-token"]').attr('content');
@@ -191,9 +181,8 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
 
 module.exports = { scrapeAnimeUnity };
 
-/*
+
 (async () => {
     const serie = await scrapeAnimeUnity("48108", "Dragon Ball Daima", "series", 1, 2);
     console.log(serie);
 })();
-*/
