@@ -63,19 +63,13 @@ async function extractStreamUrl(animePageUrl, sessionCookie) {
     if (m3u8) {
         results.push({
             url: m3u8,
-            type: 'm3u8',
             description: 'HLS Stream (m3u8)',
-            name: 'HLS',
-            filename: `${id}.m3u8`
         });
     }
     if (mp4) {
         results.push({
             url: mp4,
-            type: 'mp4',
-            description: 'Direct MP4 Download',
-            name: 'MP4',
-            filename: mp4.split('/').pop()
+            description: 'MP4',
         });
     }
     return results;
@@ -160,10 +154,8 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
                             url: streamObj.url,
                             provider: 'vixcloud',
                             dub: record.dub === 1 ? 'ITA' : 'SUB',
-                            filename: streamObj.filename,
-                            description: streamObj.description,
-                            name: streamObj.name,
-                            type: streamObj.type
+                            //filename: episodeFileName,
+                            description: streamObj.description
                         });
                     }
                 }

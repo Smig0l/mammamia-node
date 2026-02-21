@@ -164,16 +164,11 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
         try {
           const streamUrls = await scrapeAnimeUnity(kitsuId, showName, type, season, episode);
           if (streamUrls && Array.isArray(streamUrls.streams)) {
-            streamUrls.streams.forEach(({ url, provider, dub, filename, type, description, name }) => {
+            streamUrls.streams.forEach(({ url, provider, dub, description }) => {
               streams.push({
                 url,
-                name: name || type || dub,
-                description: `AnimeUnity: ${description}` || `AnimeUnity: ${dub} [${provider}] - ${filename}`,
-                filename,
-                quality: 'Unknown',
-                provider,
-                dub,
-                type
+                title: `AnimeUnity: ${description} ${dub} [${provider}]`,
+                quality: 'Unknown'
               });
             });
           }
