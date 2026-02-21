@@ -151,8 +151,9 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
 
 module.exports = { scrapeAnimeUnity };
 
-
+/*
 (async () => {
     const serie = await scrapeAnimeUnity("48108", "Dragon Ball Daima", "series", 1, 2);
     console.log(serie);
 })();
+*/
