@@ -84,14 +84,20 @@ async function extractStreamUrl(animePageUrl, sessionCookie) {
 async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
     try {
 
-        // Get session cookie for subsequent requests
-        let mainPage = await axios.get(STREAM_SITE, {
-        headers: {
-            'User-Agent': 'Mozilla/5.0'
+        let mainPage;
+        try {
+            mainPage = await axios.get(STREAM_SITE, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0'
+                }
+            });
+            console.log(`Accessed ${STREAM_SITE} main page, status: ${mainPage.status}`);
+        } catch (error) {
+            console.error(`Initial request failed with status: ${error.response?.status || 'No response'}`);
+            throw error;
         }
-        });
-        console.log(`Accessed ${STREAM_SITE} main page, status: ${mainPage.status}`);
-        if (mainPage.status == 403) { //TODO: change 403 in prod
+        
+        if (mainPage.status == 403) {
             console.error(`Failed to access ${STREAM_SITE}. Block detected. Attempting to use proxies...`);
             USE_PROXY = true;
             let proxies = await fetchProxies();
