@@ -141,13 +141,32 @@ async function extractStreamUrl(animePageUrl, sessionCookie) {
     const canplayfhd = canplayfhdMatch ? canplayfhdMatch[1] === 'true' : false;
     const id = iframeSrc.split('/embed/')[1].split('?')[0];
     const m3u8 = `https://vixcloud.co/playlist/${id}.m3u8?token=${token}&expires=${expires}&h=${canplayfhd ? 1 : 0}`;
-    console.log('Extracted m3u8 URL:', m3u8);
+    //console.log('Extracted m3u8 URL:', m3u8);
     
     const mp4Match = /window\.downloadUrl\s*=\s*'([^']+)'/.exec(script);
     const mp4 = mp4Match ? mp4Match[1] : null;
-    console.log('Extracted MP4 URL:', mp4);
+    //console.log('Extracted MP4 URL:', mp4);
 
-    return [m3u8, mp4].filter(Boolean); // TODO: return object with file type
+    const results = [];
+    if (m3u8) {
+        results.push({
+            url: m3u8,
+            type: 'm3u8',
+            description: 'HLS Stream (m3u8)',
+            name: 'HLS',
+            filename: `${id}.m3u8`
+        });
+    }
+    if (mp4) {
+        results.push({
+            url: mp4,
+            type: 'mp4',
+            description: 'Direct MP4 Download',
+            name: 'MP4',
+            filename: mp4.split('/').pop()
+        });
+    }
+    return results;
 }
 
 async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
@@ -200,13 +219,16 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
                 const animePageUrl = `${STREAM_SITE}/anime/${record.id}-${record.slug}/${episodeId}`;
                 //console.log(`Constructed anime page URL for ${record.title_eng} episode ${episode}:`, animePageUrl);
                 let streamUrls = await extractStreamUrl(animePageUrl, sessionCookie);
-                for (const streamUrl of streamUrls) {
-                    if (streamUrl) {
+                for (const streamObj of streamUrls) {
+                    if (streamObj) {
                         streams.push({
-                            url: streamUrl,
+                            url: streamObj.url,
                             provider: 'vixcloud',
                             dub: record.dub === 1 ? 'ITA' : 'SUB',
-                            filename: streamUrl
+                            filename: streamObj.filename,
+                            description: streamObj.description,
+                            name: streamObj.name,
+                            type: streamObj.type
                         });
                     }
                 }

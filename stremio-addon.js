@@ -46,7 +46,8 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
         episode = parts[2] ? parseInt(parts[2], 10) : undefined;
         
         showName = await getShowNameFromKitsu(kitsuId);
-        console.log(`Kitsu found show: ${showName.en} (${type}) with ID: ${kitsuId}`);
+        showName = showName.en || showName.en_jp;
+        console.log(`Kitsu found show: ${showName} (${type}) with ID: ${kitsuId}`);
       } else {
         console.error(`Invalid ID format: ${id}. Expected 'tt' or 'kitsu' prefix.`);
         return { streams: [] };
@@ -161,13 +162,18 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
       } else if (id.startsWith('kitsu')) {
         // Try AnimeUnity
         try {
-          const streamUrls = await scrapeAnimeUnity(kitsuId, showName.en, type, season, episode);
+          const streamUrls = await scrapeAnimeUnity(kitsuId, showName, type, season, episode);
           if (streamUrls && Array.isArray(streamUrls.streams)) {
-            streamUrls.streams.forEach(({ url, provider, dub, filename }) => {
+            streamUrls.streams.forEach(({ url, provider, dub, filename, type, description, name }) => {
               streams.push({
-                title: `AnimeUnity: ${dub} [${provider}] - ${filename}`,
                 url,
-                quality: 'Unknown'
+                name: name || type || dub,
+                description: `AnimeUnity: ${description}` || `AnimeUnity: ${dub} [${provider}] - ${filename}`,
+                filename,
+                quality: 'Unknown',
+                provider,
+                dub,
+                type
               });
             });
           }
@@ -176,7 +182,7 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
         }
         // Try AnimeWorld
         try {
-          const streamUrls = await scrapeAnimeWorld(kitsuId, showName.en_jp, type, season, episode);
+          const streamUrls = await scrapeAnimeWorld(kitsuId, showName, type, season, episode);
           if (streamUrls && Array.isArray(streamUrls.streams)) {
             streamUrls.streams.forEach(({ url, provider, dub }) => {
               streams.push({
