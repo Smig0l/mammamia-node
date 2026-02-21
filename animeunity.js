@@ -6,7 +6,6 @@ const { HttpsProxyAgent } = require('https-proxy-agent');
 
 const STREAM_SITE = process.env.AU_DOMAIN;
 let USE_PROXY = false;
-let httpsAgent = null;
 
 async function fetchProxies() {
     const resp = await axios.get('https://free.redscrape.com/api/proxies?protocol=http&max_timeout=1500&format=json');
@@ -26,7 +25,7 @@ async function search(showName, sessionCookie, csrfToken) {
         'X-CSRF-TOKEN': csrfToken,
         'Cookie': sessionCookie
     };   
-    const response = await axios.post(url, { title: showName }, { headers, httpsAgent: USE_PROXY ? httpsAgent : undefined });
+    const response = await axios.post(url, { title: showName }, { headers, httpsAgent: USE_PROXY ? httpsAgent : null });
     //console.log(response.data);
     return response.data;
 }
@@ -36,13 +35,13 @@ async function extractStreamUrl(animePageUrl, sessionCookie) {
         'User-Agent': 'Mozilla/5.0',
         'Cookie': sessionCookie
     };
-    const response = await axios.get(animePageUrl, { headers, httpsAgent: USE_PROXY ? httpsAgent : undefined });
+    const response = await axios.get(animePageUrl, { headers, httpsAgent: USE_PROXY ? httpsAgent : null });
     const $ = cheerio.load(response.data);
     //console.log(response.data);
     const iframeSrc = $('video-player').attr('embed_url');
     //console.log('Extracted iframe source:', iframeSrc);
     // extract m3u8 playlist from embed url
-    const embedResp = await axios.get(iframeSrc, { headers, httpsAgent: USE_PROXY ? httpsAgent : undefined });
+    const embedResp = await axios.get(iframeSrc, { headers, httpsAgent: USE_PROXY ? httpsAgent : null });
     const script = cheerio.load(embedResp.data)('body script').text();
     //console.log('Extracted script content:', script);
     
@@ -79,7 +78,7 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
     try {     
         
         USE_PROXY = true; //FIXME: insert this in .env config
-        console.log(`${STREAM_SITE} ${USE_PROXY ? 'Using' : 'Not using'} proxies.`);
+        //console.log(`${STREAM_SITE} ${USE_PROXY ? 'Using' : 'Not using'} proxies.`);
 
         if (USE_PROXY) {
             let proxies = await fetchProxies();
@@ -99,7 +98,7 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
             headers: {
                 'User-Agent': 'Mozilla/5.0'
             },
-            httpsAgent: USE_PROXY ? httpsAgent : undefined
+            httpsAgent: USE_PROXY ? httpsAgent : null
         });             
 
         const $ = cheerio.load(mainPage.data);
@@ -138,7 +137,7 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
                         'User-Agent': 'Mozilla/5.0',
                         'Cookie': sessionCookie
                     },
-                    httpsAgent: USE_PROXY ? httpsAgent : undefined
+                    httpsAgent: USE_PROXY ? httpsAgent : null
                 });
                 //console.log(`Info API response for ${record.title_eng} episode ${episode}:`, infoResp.data);
                 episodeId = infoResp.data.episodes.find(ep => ep.number === String(episode))?.id;
