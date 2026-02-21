@@ -2,20 +2,19 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 require('dotenv').config();
 const { getMappingsFromKitsu } = require('./utils/mediainfo');
+const { HttpsProxyAgent } = require('https-proxy-agent');
 
 const STREAM_SITE = process.env.AU_DOMAIN;
+let USE_PROXY = false;
+let httpsAgent = null;
 
-async function search(showName) {
-    const mainPage = await axios.get(STREAM_SITE, {
-        headers: {
-            'User-Agent': 'Mozilla/5.0'
-        }
-    });
-    const $ = cheerio.load(mainPage.data);
-    const csrfToken = $('meta[name="csrf-token"]').attr('content');
-    const cookies = mainPage.headers['set-cookie'] || [];
-    const sessionCookie = cookies.map(c => c.split(';')[0]).join('; ');
+async function fetchProxies() {
+    const resp = await axios.get('https://free.redscrape.com/api/proxies?protocol=http&max_timeout=1500&format=json');
+    return resp.data.filter(p => p.is_working).sort((a, b) => a.last_checked - b.last_checked);
+}
 
+async function search(showName, sessionCookie, csrfToken) {
+    
     const url = `${STREAM_SITE}/livesearch`;
     const headers = { 
         'User-Agent': 'Mozilla/5.0',
@@ -27,95 +26,8 @@ async function search(showName) {
         'X-CSRF-TOKEN': csrfToken,
         'Cookie': sessionCookie
     };   
-    const response = await axios.post(url, { title: showName }, { headers });
+    const response = await axios.post(url, { title: showName }, { headers, httpsAgent: USE_PROXY ? httpsAgent : undefined });
     //console.log(response.data);
-    /*INFO: returns an array json with dub = 0 for sub and dub = 1 for dub, also they share the same anilist_id -> response:
-    {
-    "records": [
-        {
-            "id": 12,
-            "user_id": 2,
-            "title": null,
-            "imageurl": "https:\/\/cdn.myanimelist.net\/images\/anime\/1810\/139965.jpg",
-            "plot": "Monkey D. Rufy \u00e8 un giovane pirata sognatore che da piccolo ha inavvertitamente mangiato il frutto del diavolo Gom Gom che lo rende \"elastico\", permettendogli di allungarsi e deformarsi a piacimento, a scapito, per\u00f2, della capacit\u00e0 di nuotare. L'obiettivo che lo ha spinto in mare \u00e8 quello ambizioso di diventare il Re dei pirati. Dovr\u00e0, dunque, ritrovare il leggendario \"One Piece\", il magnifico tesoro lasciato dal mitico pirata Gol D. Roger probabilmente sull'isola di Raftel, alla fine della Rotta Maggiore, mai ritrovato e sogno di ogni pirata.Nella sua avventura, Rufy riunir\u00e0 intorno a lui una ciurma e si trover\u00e0 in mezzo a situazioni bizzarre e stravaganti, tanto almeno quanto lo sono i personaggi, amici o nemici, presenti nell'universo che lo circonda, che raggiungono spesso livelli assurdi e grotteschi e che donano all'opera un'atmosfera surreale e divertente.",
-            "date": "1999",
-            "episodes_count": 0,
-            "episodes_length": 24,
-            "author": " ",
-            "created_at": "2020-07-04 02:46:59",
-            "status": "In Corso",
-            "imageurl_cover": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/anime\/banner\/21-wf37VakJmZqs.jpg",
-            "type": "TV",
-            "slug": "one-piece",
-            "title_eng": "One Piece",
-            "day": "Indeterminato",
-            "favorites": 8128,
-            "score": "9.41",
-            "visite": 92985893,
-            "studio": "Toei Animation",
-            "dub": 0,
-            "always_home": 1,
-            "members": 23234,
-            "cover": "https:\/\/img.animeworld.so\/copertine\/qzG-LE.jpg",
-            "anilist_id": 21,
-            "season": "Autunno",
-            "title_it": null,
-            "mal_id": 21,
-            "crunchy_id": null,
-            "netflix_id": null,
-            "prime_id": "0QN6GA8OASZY2UYU67FDBYSVNX",
-            "disney_id": null,
-            "real_episodes_count": 1155
-        },
-        {
-            "id": 2998,
-            "user_id": 2,
-            "title": null,
-            "imageurl": "https:\/\/img.animeworld.so\/locandine\/d5nahE.png",
-            "plot": "Monkey D. Rufy \u00e8 un giovane pirata sognatore che da piccolo ha inavvertitamente mangiato il frutto del diavolo Gom Gom che lo rende \"elastico\", permettendogli di allungarsi e deformarsi a piacimento, a scapito, per\u00f2, della capacit\u00e0  di nuotare. L'obiettivo che lo ha spinto in mare \u00e8 quello ambizioso di diventare il Re dei pirati. Dovr\u00e0 , dunque, ritrovare il leggendario \"One Piece\", il magnifico tesoro lasciato dal mitico pirata Gol D. Roger probabilmente sull'isola di Raftel, alla fine della Rotta Maggiore, mai ritrovato e sogno di ogni pirata.Nella sua avventura, Rufy riunir\u00e0  intorno a lui una ciurma e si trover\u00e0  in mezzo a situazioni bizzarre e stravaganti, tanto almeno quanto lo sono i personaggi, amici o nemici, presenti nell'universo che lo circonda, che raggiungono spesso livelli assurdi e grotteschi e che donano all'opera un'atmosfera surreale e divertente.",
-            "date": "1999",
-            "episodes_count": 0,
-            "episodes_length": 24,
-            "author": " ",
-            "created_at": "2021-03-27 17:54:21",
-            "status": "In Corso",
-            "imageurl_cover": "https:\/\/s4.anilist.co\/file\/anilistcdn\/media\/anime\/banner\/21-wf37VakJmZqs.jpg",
-            "type": "TV",
-            "slug": "one-piece-ita",
-            "title_eng": "One Piece (ITA)",
-            "day": "Indeterminato",
-            "favorites": 3444,
-            "score": "9.23",
-            "visite": 65365961,
-            "studio": "Toei Animation",
-            "dub": 1,
-            "always_home": 0,
-            "members": 9812,
-            "cover": "https:\/\/img.animeworld.so\/copertine\/d5nah.png",
-            "anilist_id": 21,
-            "season": "Autunno",
-            "title_it": null,
-            "mal_id": 21,
-            "crunchy_id": null,
-            "netflix_id": null,
-            "prime_id": "0N07MEA8EDPFAETQQTQ3NRKMS3",
-            "disney_id": null,
-            "real_episodes_count": 889
-        }
-    ]
-    }
-
-    the interesting field is id that we can use to get the links from the api endpoint /info_api/${id} -> /info_api/2998/${episode_number}?start_range=1&end_range=120 divides in 120 range max -> response:
-        {"episodes_count":889,"current_episode":401,"episodes":
-          [
-          {"id":50935,"anime_id":2998,"user_id":2,"number":"361","created_at":"2021-03-27 20:26:21","link":"OnePiece_Ep_361_ITA.mp4","visite":82104,"hidden":0,"public":1,"scws_id":331587,"file_name":"OnePiece_Ep_361_ITA.mp4","tg_post":0},
-          {"id":50936,"anime_id":2998,"user_id":2,"number":"362","created_at":"2021-03-27 20:26:24","link":"OnePiece_Ep_362_ITA.mp4","visite":68903,"hidden":0,"public":1,"scws_id":331591,"file_name":"OnePiece_Ep_362_ITA.mp4","tg_post":0}
-          ]
-        }
-
-    so then we can use the id field to get the player page /anime/${id}-${slug}/${episode-id}
-    */
-
     return response.data;
 }
 
@@ -124,13 +36,13 @@ async function extractStreamUrl(animePageUrl, sessionCookie) {
         'User-Agent': 'Mozilla/5.0',
         'Cookie': sessionCookie
     };
-    const response = await axios.get(animePageUrl, { headers });
+    const response = await axios.get(animePageUrl, { headers, httpsAgent: USE_PROXY ? httpsAgent : undefined });
     const $ = cheerio.load(response.data);
     //console.log(response.data);
     const iframeSrc = $('video-player').attr('embed_url');
     //console.log('Extracted iframe source:', iframeSrc);
     // extract m3u8 playlist from embed url
-    const embedResp = await axios.get(iframeSrc, { headers });
+    const embedResp = await axios.get(iframeSrc, { headers, httpsAgent: USE_PROXY ? httpsAgent : undefined });
     const script = cheerio.load(embedResp.data)('body script').text();
     //console.log('Extracted script content:', script);
     
@@ -173,13 +85,41 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
     try {
 
         // Get session cookie for subsequent requests
-        const mainPage = await axios.get(STREAM_SITE, {
-            headers: { 'User-Agent': 'Mozilla/5.0' }
+        let mainPage = await axios.get(STREAM_SITE, {
+        headers: {
+            'User-Agent': 'Mozilla/5.0'
+        }
         });
+        if (mainPage.status == 403) { //TODO: change 403 in prod
+            console.error(`Failed to access ${STREAM_SITE}. Block detected. Attempting to use proxies...`);
+            USE_PROXY = true;
+            let proxies = await fetchProxies();
+            if (proxies.length === 0) {
+                    proxies = await fetchProxies();
+                    if (proxies.length === 0) {
+                        throw new Error('No working proxies available');
+                    }
+                }
+                
+            const proxy = proxies[0]; // Use the most recently checked working proxy //FIXME: implement retry with multiple proxies if the first one fails
+            console.log(`Using proxy: ${proxy.address}:${proxy.port}`);
+            httpsAgent = new HttpsProxyAgent({host: proxy.address, port: proxy.port });
+
+            mainPage = await axios.get(STREAM_SITE, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0'
+                },
+                httpsAgent
+            });
+            
+        }
+
+        const $ = cheerio.load(mainPage.data);
+        const csrfToken = $('meta[name="csrf-token"]').attr('content');
         const cookies = mainPage.headers['set-cookie'] || [];
         const sessionCookie = cookies.map(c => c.split(';')[0]).join('; ');
 
-        const searchResult = await search(showName);
+        const searchResult = await search(showName, sessionCookie, csrfToken);
         
         const anilistId = await getMappingsFromKitsu(kitsuId);
         
@@ -209,7 +149,8 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
                     headers: {
                         'User-Agent': 'Mozilla/5.0',
                         'Cookie': sessionCookie
-                    }
+                    },
+                    httpsAgent: USE_PROXY ? httpsAgent : undefined
                 });
                 //console.log(`Info API response for ${record.title_eng} episode ${episode}:`, infoResp.data);
                 episodeId = infoResp.data.episodes.find(ep => ep.number === String(episode))?.id;
