@@ -21,6 +21,20 @@ async function fetchProxies() {
     }
 }
 
+async function testProxy(agent) {
+    try {
+        const response = await axios.get('https://httpbin.org/ip', {
+            httpsAgent: agent,
+            timeout: 1500
+        });
+        //console.log('Proxy test successful');
+        return true;
+    } catch (error) {
+        console.error('Proxy test failed:', error.message);
+        return false;
+    }
+}
+
 async function getProxyAgent() {
     if (!USE_PROXY) {
         return null;
@@ -29,13 +43,13 @@ async function getProxyAgent() {
     // Check if cached proxy is still valid
     const now = Date.now();
     if (cachedProxy.agent && (now - cachedProxy.timestamp) < PROXY_CACHE_TTL && !cachedProxy.error) {
-        console.log('Using cached proxy agent');
+        //console.log('Using cached proxy agent');
         return cachedProxy.agent;
     }
 
     // Cache expired or had error, fetch new proxy
     try {
-        console.log('Fetching new proxy...');
+        //console.log('Fetching new proxy...');
         let proxies = await fetchProxies();
         if (proxies.length > 0) {
             const proxy = proxies[0];
@@ -45,7 +59,12 @@ async function getProxyAgent() {
                 timestamp: now,
                 error: null
             };
-            return cachedProxy.agent;
+            const isValid = await testProxy(cachedProxy.agent);
+            if (isValid) {
+                return cachedProxy.agent;
+            } else {
+                console.error('Fetched proxy is not working'); //FIXME: cycle an retry with next proxy in the list
+            }
         }
         throw new Error('No proxy available');
     } catch (error) {

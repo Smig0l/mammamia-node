@@ -72,7 +72,6 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
     try {     
 
         const proxyAgent = await getProxyAgent();
-        console.log('Using proxy agent:', proxyAgent ? 'Yes' : 'No proxy');
 
         mainPage = await axios.get(STREAM_SITE, {
             headers: {
