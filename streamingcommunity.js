@@ -1,13 +1,11 @@
 require('dotenv').config();
 const axios = require('axios');
 const cheerio = require('cheerio');
+const { getTmdbId } = require('./utils/mediainfo');
 
 const STREAM_SITE = process.env.SC_DOMAIN;
 const USER_AGENT = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:127.0) Gecko/20100101 Firefox/127.0";
 
-/**
- * Get the inertia version token from main site
- */
 async function getVersion() {
   try {
     const resp = await axios.get(`${STREAM_SITE}/richiedi-un-titolo`, {
@@ -48,9 +46,6 @@ async function getSeasonEpisodeId(tid, slug, season, episode) {
   }
 }
 
-/**
- * Generic search function for both movies and series
- */
 async function search(showName, imdbId) {
   try {
     const headers = {
@@ -77,13 +72,8 @@ async function search(showName, imdbId) {
   }
 }
 
-/**
- * Extract player page links for both movies and series
- */
-async function parsePlayerPage(tid, version, episodeId = null) {
+async function parsePlayerPage(playerPage, version) {
   try {
-
-    const playerLinks = [];
 
     const headers = {
       'User-Agent': USER_AGENT,
@@ -93,49 +83,29 @@ async function parsePlayerPage(tid, version, episodeId = null) {
       'Origin': `${STREAM_SITE}`
     };
 
-    // Build iframe URL based on content type
-    let iframeUrl = `${STREAM_SITE}/it/iframe/${tid}`;
-    if (episodeId) {
-      iframeUrl += `?episode_id=${episodeId}&next_episode=1`;
-    }
-
-    const resp = await axios.get(iframeUrl, { headers });
-    const $ = cheerio.load(resp.data);
-    let iframeSrc = $('iframe').attr('src');
+    const embedResp = await axios.get(playerPage, { headers });
     
-    if (!iframeSrc.match(/^https?:\/\//)) {
-      iframeSrc = `${STREAM_SITE}${iframeSrc}`;
-    }
-    //console.log('StreamingCommunity iframeSrc:', iframeSrc);
-
-    const embedResp = await axios.get(iframeSrc, { headers });
     const script = cheerio.load(embedResp.data)('body script').text();
+    //console.log('Extracted script content:', script);
+    
+    const token = /'token':\s*'([\w-]+)'/.exec(script)[1];
+    const expires = /'expires':\s*'(\d+)'/.exec(script)[1];
+    //const quality = /"quality":(\d+)/.exec(script)[1];
+    const canplayfhdMatch = /window\.canPlayFHD\s*=\s*(true|false)/.exec(script);
+    const canplayfhd = canplayfhdMatch ? canplayfhdMatch[1] === 'true' : false;
+    const id = /id:\s*'(\d+)'/.exec(script)[1];
+    const m3u8 = `https://vixcloud.co/playlist/${id}.m3u8?token=${token}&expires=${expires}&h=${canplayfhd ? 1 : 0}`;
+    //console.log('Extracted m3u8 URL:', m3u8);
 
-    // Extract stream info
-    const token = /'token':\s*'([\w-]+)'/.exec(script)?.[1];
-    const expires = /'expires':\s*'(\d+)'/.exec(script)?.[1];
-    const id = iframeSrc.split('/embed/')[1].split('?')[0];
-
-    if (token && expires && id) {
-      let stream = `https://vixcloud.co/playlist/${id}.m3u8?token=${token}&expires=${expires}`;
-      if (iframeSrc.includes('canPlayFHD=1')) {
-        stream += '&h=1';
-      };
-      if (iframeSrc.includes('lang')) {
-        stream += '&lang=it';
-      };
-
-      const checkres = await axios.head(stream, { headers });
-      //console.log('Vixcloud Player Link Response:', checkres.status);
-      if (checkres.status === 200) {
-        playerLinks.push(stream);
-        return playerLinks;
-      }
-
+    const results = [];
+    if (m3u8) {
+        results.push({
+            url: m3u8,
+            description: 'HLS Stream (m3u8)',
+        });
     }
-
-    console.error('❌ StreamingCommunity: Could not extract stream info');
-    return null;
+    
+    return results; //FIXME: some videos do not play? like tmdb 1168190
 
   } catch (error) {
     console.error('❌ Error in parsePlayerPage:', error.message);
@@ -143,40 +113,33 @@ async function parsePlayerPage(tid, version, episodeId = null) {
   }
 }
 
-/**
- * Main StreamingCommunity scraper function
- */
 async function scrapeStreamingCommunity(imdbId, showName, type, season = null, episode = null) {
   try {
-    const searchResult = await search(showName, imdbId);
-    if (!searchResult) {
-      console.error(`❌ StreamingCommunity: No ${type} found for "${showName}"`);
-      return null;
-    }
 
-    const { tid, slug, version } = searchResult;
-    let episodeId = null;
+    let playerPage = '';
 
-    if (type === 'series' && season && episode) {
-      episodeId = await getSeasonEpisodeId(tid, slug, season, episode);
-      if (!episodeId) {
-        console.error(`❌ StreamingCommunity: Episode not found - S${season}E${episode}`);
-        return null;
+    const tmdbid = await getTmdbId(imdbId);
+    if (tmdbid != null) {
+      console.log(`Found TMDB ID for ${showName} (${imdbId}): ${tmdbid}`);
+      if (type === 'movie') {
+        playerPage = `${STREAM_SITE}/movie/${tmdbid}?lang=it`;
+      } else if (type === 'series' && season && episode) {
+        playerPage = `${STREAM_SITE}/tv/${tmdbid}/${season}/${episode}?lang=it`;
       }
     }
 
     let streams = [];
 
-    playerLinks = await parsePlayerPage(tid, version, episodeId);
-    if (!playerLinks?.length) {
-      console.error('❌ StreamingCommunity: No links found in player page');
-      return null;
-    } else {
-      //console.log('✅ StreamingCommunity Player Links:', playerLinks);
-      for (const link of playerLinks) {
-          const streamObj = { url: link, provider: 'vixcloud', headers: { 'User-Agent': USER_AGENT , 'Accept': 'application/vnd.apple.mpegurl' }   };
-          if (streamObj) streams.push(streamObj);
-        
+    let version = await getVersion();
+
+    let streamUrls = await parsePlayerPage(playerPage, version);
+    for (const streamObj of streamUrls) {
+    if (streamObj) {
+        streams.push({
+            url: streamObj.url,
+            provider: 'vixcloud',
+            description: streamObj.description
+        });
       }
     }
 
@@ -196,7 +159,7 @@ module.exports = { scrapeStreamingCommunity };
 // Test the code
 (async () => {
   // Uncomment to test:
-  //const movie = await scrapeStreamingCommunity('tt28309594', 'Nonnas', 'movie');
-  //const series = await scrapeStreamingCommunity('tt3581920', 'The Last of Us', 'series', 1, 1);
+  const movie = await scrapeStreamingCommunity('tt28309594', 'Nonnas', 'movie');
+  const series = await scrapeStreamingCommunity('tt3581920', 'The Last of Us', 'series', 1, 1);
 })();
 */

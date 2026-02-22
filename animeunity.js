@@ -71,7 +71,7 @@ async function extractStreamUrl(animePageUrl, sessionCookie, proxyAgent) {
 async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) { 
     try {     
 
-        const proxyAgent = await getProxyAgent();
+        const proxyAgent = await getProxyAgent(STREAM_SITE);
 
         mainPage = await axios.get(STREAM_SITE, {
             headers: {
@@ -154,6 +154,5 @@ module.exports = { scrapeAnimeUnity };
 /*
 (async () => {
     const serie = await scrapeAnimeUnity("48108", "Dragon Ball Daima", "series", 1, 2);
-    console.log(serie);
 })();
 */

@@ -1,4 +1,7 @@
 const axios = require('axios');
+require('dotenv').config();
+
+const TMDB_API_KEY = process.env.TMDB_API_KEY;
 
 async function getShowNameFromCinemeta(type, imdbId) {
   try {
@@ -11,6 +14,18 @@ async function getShowNameFromCinemeta(type, imdbId) {
     console.error('Cinemeta fetch error:', err.message);
   }
   return 'Unknown';
+}
+
+async function getTmdbId(imdbId) {
+  try {
+    const resp = await axios.get(`https://api.themoviedb.org/3/find/${imdbId}?api_key=${TMDB_API_KEY}&external_source=imdb_id`);
+    if (resp.data) {
+      return resp.data.movie_results[0]?.id || resp.data.tv_results[0]?.id || null;
+    }
+  } catch (err) {
+    console.error('TMDB fetch error:', err.message);
+  }
+  return null;
 }
 
 async function getShowNameFromKitsu(kitsuId) {
@@ -112,7 +127,7 @@ async function getAniListInfo(anilistId) {
     };
 }
 
-module.exports = { getShowNameFromCinemeta, getShowNameFromKitsu, getMappingsFromKitsu, getAniListInfo };
+module.exports = { getShowNameFromCinemeta, getTmdbId, getShowNameFromKitsu, getMappingsFromKitsu, getAniListInfo };
 
 /*
 (async () => {
