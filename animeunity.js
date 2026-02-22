@@ -7,7 +7,7 @@ const { getProxyAgent } = require('./utils/proxy');
 const STREAM_SITE = process.env.AU_DOMAIN;
 
 async function search(showName, sessionCookie, csrfToken, proxyAgent) {
-    
+
     const url = `${STREAM_SITE}/livesearch`;
     const headers = { 
         'User-Agent': 'Mozilla/5.0',
@@ -20,7 +20,7 @@ async function search(showName, sessionCookie, csrfToken, proxyAgent) {
         'Cookie': sessionCookie
     };   
     const response = await axios.post(url, { title: showName }, { headers, httpsAgent: proxyAgent });
-    //console.log(response.data);
+    //console.log("Animeunity search results:", response.data);
     return response.data;
 }
 
@@ -72,6 +72,7 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
     try {     
 
         const proxyAgent = await getProxyAgent();
+        console.log('Using proxy agent:', proxyAgent ? 'Yes' : 'No proxy');
 
         mainPage = await axios.get(STREAM_SITE, {
             headers: {
@@ -85,7 +86,7 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
         const cookies = mainPage.headers['set-cookie'] || [];
         const sessionCookie = cookies.map(c => c.split(';')[0]).join('; ');
 
-        const searchResult = await search(showName, sessionCookie, csrfToken);
+        const searchResult = await search(showName, sessionCookie, csrfToken, proxyAgent);
         
         const anilistId = await getMappingsFromKitsu(kitsuId);
         
@@ -125,7 +126,7 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
                 
                 const animePageUrl = `${STREAM_SITE}/anime/${record.id}-${record.slug}/${episodeId}`;
                 //console.log(`Constructed anime page URL for ${record.title_eng} episode ${episode}:`, animePageUrl);
-                let streamUrls = await extractStreamUrl(animePageUrl, sessionCookie);
+                let streamUrls = await extractStreamUrl(animePageUrl, sessionCookie, proxyAgent);
                 for (const streamObj of streamUrls) {
                     if (streamObj) {
                         streams.push({
@@ -151,9 +152,8 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
 
 module.exports = { scrapeAnimeUnity };
 
-/*
+
 (async () => {
     const serie = await scrapeAnimeUnity("48108", "Dragon Ball Daima", "series", 1, 2);
     console.log(serie);
 })();
-*/
