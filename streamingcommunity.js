@@ -88,13 +88,29 @@ async function parsePlayerPage(playerPage, version) {
     const script = cheerio.load(embedResp.data)('body script').text();
     //console.log('Extracted script content:', script);
     
-    const token = /'token':\s*'([\w-]+)'/.exec(script)[1];
-    const expires = /'expires':\s*'(\d+)'/.exec(script)[1];
-    //const quality = /"quality":(\d+)/.exec(script)[1];
+    const idMatch = /window\.video\s*=\s*{[^}]*id:\s*'(\d+)'/m.exec(script);
+    const tokenMatch = /'token':\s*'([\w-]+)'/m.exec(script);
+    const expiresMatch = /'expires':\s*'(\d+)'/m.exec(script);
+    const urlMatch = /url:\s*'([^']+)'/m.exec(script);
     const canplayfhdMatch = /window\.canPlayFHD\s*=\s*(true|false)/.exec(script);
+
+    const id = idMatch ? idMatch[1] : null;
+    const token = tokenMatch ? tokenMatch[1] : null;
+    const expires = expiresMatch ? expiresMatch[1] : null;
+    const url = urlMatch ? urlMatch[1] : null;
     const canplayfhd = canplayfhdMatch ? canplayfhdMatch[1] === 'true' : false;
-    const id = /id:\s*'(\d+)'/.exec(script)[1];
-    const m3u8 = `https://vixcloud.co/playlist/${id}.m3u8?token=${token}&expires=${expires}&h=${canplayfhd ? 1 : 0}`;
+
+    if (!id || !token || !expires || !url) {
+      throw new Error('Failed to extract stream parameters');
+    }
+
+    const b = url.includes('b=1') ? 1 : 0;
+
+    const mp4Match = /window\.downloadUrl\s*=\s*'([^']+)'/.exec(script);
+    const mp4 = mp4Match ? mp4Match[1] : null;
+    //console.log('Extracted MP4 URL:', mp4); // SC does not return a correct mp4 url...
+
+    const m3u8 = `https://vixcloud.co/playlist/${id}.m3u8?token=${token}&expires=${expires}&h=${canplayfhd ? 1 : 0}${b ? '&b=1' : ''}`;
     //console.log('Extracted m3u8 URL:', m3u8);
 
     const results = [];
@@ -105,7 +121,7 @@ async function parsePlayerPage(playerPage, version) {
         });
     }
     
-    return results; //FIXME: some videos do not play? like tmdb 1168190
+    return results;
 
   } catch (error) {
     console.error('❌ Error in parsePlayerPage:', error.message);
