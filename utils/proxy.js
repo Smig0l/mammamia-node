@@ -5,8 +5,7 @@ const USE_PROXY = process.env.USE_PROXY === 'true';
 const PROXY_API_URL = process.env.PROXY_API_URL;
 
 let cachedProxy = {
-    agent: null,
-    error: null
+    agent: null
 };
 
 async function fetchProxies() {
@@ -24,7 +23,9 @@ async function testProxy(agent, STREAM_SITE) {
         //console.log('Testing proxy...');
         const response = await axios.get(`${STREAM_SITE}/`, {
             httpsAgent: agent,
-            timeout: 1500
+            timeout: 1500,
+            signal: AbortSignal.timeout(5000), // force timeout after 5 seconds
+            maxRedirects: 0
         });
         //console.log('Proxy test successful');
         return true;
@@ -34,14 +35,14 @@ async function testProxy(agent, STREAM_SITE) {
     }
 }
 
-async function getProxyAgent(STREAM_SITE) {
+async function getProxyAgent(STREAM_SITE, forceNew = false) {
     if (!USE_PROXY) {
         return null;
     }
 
-    // Check if cached proxy is still valid
-    if (cachedProxy.agent && !cachedProxy.error) {
-        console.log('Using cached proxy agent');
+    // Check if cached proxy is still valid (has successfully worked in testProxy or has forced refresh)
+    if (cachedProxy.agent && !forceNew) {
+        //console.log('Using cached proxy agent');
         return cachedProxy.agent;
     }
 
@@ -53,8 +54,7 @@ async function getProxyAgent(STREAM_SITE) {
             for (const proxy of proxies) {
                 console.log(`Using fetched proxy: ${proxy.address}:${proxy.port}`);
                 cachedProxy = {
-                    agent: new HttpsProxyAgent({ host: proxy.address, port: proxy.port }),
-                    error: null
+                    agent: new HttpsProxyAgent({ host: proxy.address, port: proxy.port })
                 };
                 const isValid = await testProxy(cachedProxy.agent, STREAM_SITE);
                 if (isValid) {

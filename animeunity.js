@@ -71,7 +71,7 @@ async function extractStreamUrl(animePageUrl, sessionCookie, proxyAgent) {
 async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) { 
     try {     
 
-        const proxyAgent = await getProxyAgent(STREAM_SITE);
+        const proxyAgent = await getProxyAgent(STREAM_SITE, true);
 
         mainPage = await axios.get(STREAM_SITE, {
             headers: {
