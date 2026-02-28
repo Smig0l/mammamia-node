@@ -11,7 +11,10 @@ let cachedProxy = {
 async function fetchProxies() {
     try {
         const resp = await axios.get(PROXY_API_URL);
-        return resp.data.filter(p => p.is_working).sort((a, b) => a.last_checked - b.last_checked);
+        //console.log(resp.data);
+        return resp.data.filter(p => p.is_working).sort((a, b) => 
+            new Date(b.last_checked) - new Date(a.last_checked)
+        );
     } catch (error) {
         console.error('Failed to fetch proxies:', error.message);
         return [];
