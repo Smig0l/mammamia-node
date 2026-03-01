@@ -142,9 +142,9 @@ async function scrapeAnimeWorld(kitsuId, showName, type, season, episode) {
 
 module.exports = { scrapeAnimeWorld };
 
-
+/*
 (async () => { 
     //const serie = await scrapeAnimeWorld("48108", "Dragon Ball Daima", "series", 1, 2);
     const serie = await scrapeAnimeWorld("12", "One Piece", "series", 1, 400);
 })();
-
+*/
