@@ -1,7 +1,7 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 require('dotenv').config();
-const { getMappingsFromKitsu } = require('./utils/mediainfo');
+const { getMappingsFromKitsu, getShowNameFromKitsu } = require('./utils/mediainfo');
 const { getProxyAgent } = require('./utils/proxy');
 
 const STREAM_SITE = process.env.AU_DOMAIN;
@@ -152,7 +152,16 @@ async function scrapeAnimeUnity(kitsuId, showName, type, season, episode) {
 module.exports = { scrapeAnimeUnity };
 
 /*
-(async () => {
-    const serie = await scrapeAnimeUnity("48108", "Dragon Ball Daima", "series", 1, 2);
+(async () => { 
+    const kitsuId = "12"; // One Piece -> series
+    //const kitsuId = "48108"; // Dragon Ball Daima -> series
+    //const kitsuId = "49001"; // Demon Slayer: Kimetsu no Yaiba - Infinity Castle -> movie //FIXME: for this movies it uses different showName
+    const type = "series";
+    //const type = "movie";
+    const season = 1;
+    const episode = 2;
+    const showNames = await getShowNameFromKitsu(kitsuId);
+    console.log(showNames);
+    const results = await scrapeAnimeUnity(kitsuId, showNames.en_us || showNames.en || showNames.en_jp, type, season, episode);
 })();
 */

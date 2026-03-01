@@ -45,9 +45,8 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
         season = 1; // Kitsu addon do not return season info, so we default to 1
         episode = parts[2] ? parseInt(parts[2], 10) : undefined;
         
-        showName = await getShowNameFromKitsu(kitsuId);
-        showName = showName.en || showName.en_jp;
-        console.log(`Kitsu found show: ${showName} (${type}) with ID: ${kitsuId}`);
+        showNames = await getShowNameFromKitsu(kitsuId);
+        console.log(`Kitsu found show: ${showNames.en_us || showNames.en || showNames.en_jp} (${type}) with ID: ${kitsuId}`);
       } else {
         console.error(`Invalid ID format: ${id}. Expected 'tt' or 'kitsu' prefix.`);
         return { streams: [] };
@@ -162,7 +161,7 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
       } else if (id.startsWith('kitsu')) {
         // Try AnimeUnity
         try {
-          const streamUrls = await scrapeAnimeUnity(kitsuId, showName, type, season, episode);
+          const streamUrls = await scrapeAnimeUnity(kitsuId, showNames.en_us || showNames.en || showNames.en_jp, type, season, episode);
           if (streamUrls && Array.isArray(streamUrls.streams)) {
             streamUrls.streams.forEach(({ url, provider, dub, description }) => {
               streams.push({
@@ -177,7 +176,7 @@ builder.defineStreamHandler(async ({ type, id, season, episode }) => {
         }
         // Try AnimeWorld
         try {
-          const streamUrls = await scrapeAnimeWorld(kitsuId, showName, type, season, episode);
+          const streamUrls = await scrapeAnimeWorld(kitsuId, showNames.en_us || showNames.en || showNames.en_jp, type, season, episode);
           if (streamUrls && Array.isArray(streamUrls.streams)) {
             streamUrls.streams.forEach(({ url, provider, dub }) => {
               streams.push({

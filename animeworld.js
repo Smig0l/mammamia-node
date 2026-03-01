@@ -1,7 +1,7 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 require('dotenv').config();
-const { getMappingsFromKitsu } = require('./utils/mediainfo');
+const { getMappingsFromKitsu, getShowNameFromKitsu } = require('./utils/mediainfo');
 
 const STREAM_SITE = process.env.AW_DOMAIN;
 
@@ -14,13 +14,13 @@ async function parsePlayerPage(pageUrl, type, season, episode) {
 
         const links = [];
 
-        if (type !== "movie") {
+        if (type === "series") {
             const episodeLink = $(`a[data-episode-num="${episode}"]`).attr('href');
             if (!episodeLink) return null;
             response = await axios.get(`${STREAM_SITE}${episodeLink}`, { headers: { 'User-Agent': 'Mozilla/5.0' } });
             $ = cheerio.load(response.data);
             //console.log('Parsed episode page',`${STREAM_SITE}${episodeLink}`, response.data);
-
+        }
             /* comment out because player are simply embeds of download links
             const playerEpId = $('#player').attr('data-id');
             console.log('Player found:', playerEpId);
@@ -32,7 +32,6 @@ async function parsePlayerPage(pageUrl, type, season, episode) {
             const alternativeDownloadUrl = $('#download #alternativeDownloadLink').attr('href');
             if (alternativeDownloadUrl) links.push(alternativeDownloadUrl);
 
-        }
 
         return links;
 
@@ -45,7 +44,7 @@ async function parsePlayerPage(pageUrl, type, season, episode) {
 
 async function search(showname, sessionCookie, csrfToken) {
     try {
-        const keyword = encodeURIComponent(showname.replace(/\+/g, ' '));
+        const keyword = encodeURIComponent(showname.replace(/\+/g, ' ').replace(/ - /g, ' '));
         const url = `${STREAM_SITE}/api/search/v2?keyword=${keyword}`;
         //const url = `${STREAM_SITE}/filter?sort=2&keyword=${keyword}`; //FIXME: harder to parse
 
@@ -105,31 +104,30 @@ async function scrapeAnimeWorld(kitsuId, showName, type, season, episode) {
         let filteredRecords = [];
         let playerLinks = [];
         let streams = [];
-        if (type === "series") {
-            filteredRecords = results.animes.filter(animes => animes.anilistId == anilistId.anilistId);
-            //console.log(`Found ${filteredRecords.length} matching records for Anilist ID ${anilistId.anilistId}`);
+        
+        filteredRecords = results.animes.filter(animes => animes.anilistId == anilistId.anilistId);
+        //console.log(`Found ${filteredRecords.length} matching records for Anilist ID ${anilistId.anilistId}`);
 
-            for (const record of filteredRecords) {
-                //console.log(`record: ${record.name} ${record.link} ${record.dub} ${record.language} ${record.identifier}`);
-                let pageUrl = `${STREAM_SITE}/play/${record.link}.${record.identifier}`;
-                playerLinks = await parsePlayerPage(pageUrl, type, season, episode);
-                if (!playerLinks?.length) {
-                    console.error('❌ AnimeWorld: No links found in player page');
-                    return null;
-                } else {
-                    //console.log('✅ AnimeWorld Player Links:', playerLinks);
-                    for (const streamObj of playerLinks) {
-                        if (streamObj) {streams.push({ 
-                            url: streamObj, 
-                            provider: 'Unknown', 
-                            dub: record.dub == 1 ? 'ITA' : 'SUB', });
-                        }
-                        
+        for (const record of filteredRecords) {
+            //console.log(`record: ${record.name} ${record.link} ${record.dub} ${record.language} ${record.identifier}`);
+            let pageUrl = `${STREAM_SITE}/play/${record.link}.${record.identifier}`;
+            playerLinks = await parsePlayerPage(pageUrl, type, season, episode);
+            if (!playerLinks?.length) {
+                console.error('❌ AnimeWorld: No links found in player page');
+                return null;
+            } else {
+                //console.log('✅ AnimeWorld Player Links:', playerLinks);
+                for (const streamObj of playerLinks) {
+                    if (streamObj) {streams.push({ 
+                        url: streamObj, 
+                        provider: 'Unknown', 
+                        dub: record.dub == 1 ? 'ITA' : 'SUB', });
                     }
+                    
                 }
             }
-
         }
+      
 
     console.log('✅ AnimeWorld Stream URLs:', streams);
     return { streams };
@@ -144,7 +142,15 @@ module.exports = { scrapeAnimeWorld };
 
 /*
 (async () => { 
-    //const serie = await scrapeAnimeWorld("48108", "Dragon Ball Daima", "series", 1, 2);
-    const serie = await scrapeAnimeWorld("12", "One Piece", "series", 1, 400);
+    //const kitsuId = "12"; // One Piece -> series
+    //const kitsuId = "48108"; // Dragon Ball Daima -> series
+    const kitsuId = "49001"; // Demon Slayer: Kimetsu no Yaiba - Infinity Castle -> movie
+    //const type = "series";
+    const type = "movie";
+    const season = 1;
+    const episode = 2;
+    const showNames = await getShowNameFromKitsu(kitsuId);
+    console.log(showNames);
+    const results = await scrapeAnimeWorld(kitsuId, showNames.en_us || showNames.en || showNames.en_jp, type, season, episode);
 })();
 */
