@@ -27,8 +27,8 @@ async function parsePlayerPage(pageUrl, type, season, episode) {
             links.push(`${STREAM_SITE}/api/episode/serverPlayerAnimeWorld?id=${playerEpId}`);
             links.push(`${STREAM_SITE}/api/episode/serverPlayerAnimeWorld?alt=1&id=${playerEpId}`);
             */
-            const downloadUrl = $('#download #downloadLink').attr('href');
-            if (downloadUrl) links.push(downloadUrl);
+            //const downloadUrl = $('#download #downloadLink').attr('href');
+            //if (downloadUrl) links.push(downloadUrl); //FIXME: not web ready
             const alternativeDownloadUrl = $('#download #alternativeDownloadLink').attr('href');
             if (alternativeDownloadUrl) links.push(alternativeDownloadUrl);
 
@@ -142,9 +142,9 @@ async function scrapeAnimeWorld(kitsuId, showName, type, season, episode) {
 
 module.exports = { scrapeAnimeWorld };
 
-/*
+
 (async () => { 
     //const serie = await scrapeAnimeWorld("48108", "Dragon Ball Daima", "series", 1, 2);
     const serie = await scrapeAnimeWorld("12", "One Piece", "series", 1, 400);
 })();
-*/
+
